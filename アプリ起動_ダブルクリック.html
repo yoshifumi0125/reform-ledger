@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>現場収支クラウド ｜ 下請けリフォーム専用収支管理＆弥生会計API連携</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-3 sm:p-6">
+  <div class="max-w-6xl mx-auto space-y-6">
+
+    <!-- ヘッダー -->
+    <header class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-xl bg-blue-900 text-white flex items-center justify-center font-bold text-2xl shadow-inner">
+          🏗️
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold tracking-tight">現場収支クラウド</h1>
+            <span class="text-xs bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded">下請けリフォームPRO</span>
+          </div>
+          <p class="text-xs text-[var(--muted-foreground)]">
+            receipt-app連携 ｜ 現場別リアルタイム粗利計算 ＆ 弥生会計オンラインAPI自動仕訳
+          </p>
+        </div>
+      </div>
+
+      <!-- 弥生会計APIステータスバッジ ＆ クイックアクション -->
+      <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+        <div class="flex items-center gap-2 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-lg text-xs">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="font-bold text-orange-900">弥生会計API: 連携接続中</span>
+          <span id="header-unsynced-badge" class="bg-orange-600 text-white font-bold px-1.5 py-0.2 rounded-full text-[11px]">3件未送信</span>
+        </div>
+        <button onclick="switchTab('yayoi')" class="bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition shadow-sm flex items-center gap-1.5">
+          <span>🔄</span> 弥生へ一括送信
+        </button>
+      </div>
+    </header>
+
+    <!-- ナビゲーションタブ -->
+    <nav class="flex gap-2 overflow-x-auto pb-1 text-sm font-semibold border-b border-[var(--border)]">
+      <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-4 py-2 rounded-lg bg-blue-50 text-blue-900 border-b-2 border-blue-900 flex items-center gap-1.5">
+        <span>📊</span> ダッシュボード（今月収支）
+      </button>
+      <button onclick="switchTab('scanner')" id="tab-scanner" class="tab-btn px-4 py-2 rounded-lg text-[var(--muted-foreground)] hover:bg-slate-100 flex items-center gap-1.5">
+        <span>📸</span> レシート読取 (OCR)
+      </button>
+      <button onclick="switchTab('projects')" id="tab-projects" class="tab-btn px-4 py-2 rounded-lg text-[var(--muted-foreground)] hover:bg-slate-100 flex items-center gap-1.5">
+        <span>📁</span> 現場・工事一覧
+      </button>
+      <button onclick="switchTab('expenses')" id="tab-expenses" class="tab-btn px-4 py-2 rounded-lg text-[var(--muted-foreground)] hover:bg-slate-100 flex items-center gap-1.5">
+        <span>🧾</span> 経費・仕訳一覧
+      </button>
+      <button onclick="switchTab('labor')" id="tab-labor" class="tab-btn px-4 py-2 rounded-lg text-[var(--muted-foreground)] hover:bg-slate-100 flex items-center gap-1.5">
+        <span>👷</span> 外注・応援人工
+      </button>
+      <button onclick="switchTab('yayoi')" id="tab-yayoi" class="tab-btn px-4 py-2 rounded-lg text-orange-700 hover:bg-orange-50 flex items-center gap-1.5">
+        <span>🔄</span> 弥生会計連携ハブ
+      </button>
+    </nav>
+
+    <!-- ==================== TAB: DASHBOARD ==================== -->
+    <div id="content-dashboard" class="tab-content space-y-6">
+      
+      <!-- KPIカード群 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- 請負売上 -->
+        <div class="bg-[var(--card)] border border-[var(--border)] border-l-4 border-l-blue-900 rounded-xl p-4 shadow-sm">
+          <div class="text-xs font-semibold text-[var(--muted-foreground)]">請負売上合計 (税込)</div>
+          <div class="text-2xl font-black text-[var(--foreground)] mt-1 tabular-nums">¥3,708,000</div>
+          <div class="text-[11px] flex justify-between mt-2 pt-2 border-t border-[var(--border)]">
+            <span class="text-emerald-600 font-bold">入金済: ¥298,000</span>
+            <span class="text-amber-600 font-bold">未回収: ¥3,410,000</span>
+          </div>
+        </div>
+
+        <!-- 現場直接原価 -->
+        <div class="bg-[var(--card)] border border-[var(--border)] border-l-4 border-l-rose-600 rounded-xl p-4 shadow-sm">
+          <div class="text-xs font-semibold text-[var(--muted-foreground)]">投入原価 (資材・外注人工)</div>
+          <div class="text-2xl font-black text-rose-700 mt-1 tabular-nums">-¥339,900</div>
+          <div class="text-[11px] text-[var(--muted-foreground)] mt-2 pt-2 border-t border-[var(--border)] flex justify-between">
+            <span>材料: ¥167,450</span>
+            <span>人工: ¥117,000</span>
+            <span>経費: ¥55,450</span>
+          </div>
+        </div>
+
+        <!-- 粗利益 & 粗利率 -->
+        <div class="bg-[var(--card)] border border-[var(--border)] border-l-4 border-l-emerald-600 rounded-xl p-4 shadow-sm">
+          <div class="flex justify-between items-center">
+            <div class="text-xs font-semibold text-[var(--muted-foreground)]">現場粗利益</div>
+            <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">粗利率 37.8%</span>
+          </div>
+          <div class="text-2xl font-black text-emerald-600 mt-1 tabular-nums">¥1,401,500</div>
+          <div class="text-[11px] text-[var(--muted-foreground)] mt-2 pt-2 border-t border-[var(--border)]">
+            一般経費控除後 純益: <strong class="text-[var(--foreground)]">¥1,390,300</strong>
+          </div>
+        </div>
+
+        <!-- 弥生会計連携状況 -->
+        <div class="bg-orange-50 border border-orange-200 border-l-4 border-l-orange-500 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-bold text-orange-900">弥生会計スマート取引取込</div>
+            <div class="text-xl font-black text-orange-700 mt-1 tabular-nums">3件 未送信</div>
+            <p class="text-[11px] text-orange-800 mt-1">未送信経費 計 ¥28,550</p>
+          </div>
+          <button onclick="switchTab('yayoi')" class="w-full mt-2 bg-orange-600 hover:bg-orange-700 text-white font-bold py-1.5 px-3 rounded text-xs transition">
+            弥生APIへ一括送信
+          </button>
+        </div>
+      </div>
+
+      <!-- 現場ごとの粗利状況 -->
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 shadow-sm space-y-4">
+        <div class="flex justify-between items-center">
+          <div>
+            <h3 class="font-bold text-base flex items-center gap-2">
+              <span>🏗️</span> 進行中現場のリアルタイム粗利一覧
+            </h3>
+            <p class="text-xs text-[var(--muted-foreground)]">現場ごとに資材・外注費・駐車場を自動紐付け、赤字化を未然に防止します</p>
+          </div>
+          <button onclick="switchTab('projects')" class="text-xs text-blue-700 font-bold hover:underline">
+            全現場を見る →
+          </button>
+        </div>
+
+        <div class="space-y-3">
+          <!-- 現場1 -->
+          <div class="p-4 rounded-xl border border-[var(--border)] hover:border-blue-900 transition bg-white space-y-3">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded">施工中</span>
+                  <strong class="text-sm">渋谷区富ヶ谷 S様邸 マンション内装・水回り全面改装工事</strong>
+                </div>
+                <div class="text-xs text-[var(--muted-foreground)] mt-1">
+                  元請: <strong>株式会社大和リビングデザイン</strong> ｜ 工期: 2026-11-01 〜 2026-11-28
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-bold text-emerald-600 tabular-nums">
+                  粗利益: ¥1,580,300 (粗利率 85.4%)
+                </div>
+                <div class="text-xs text-[var(--muted-foreground)]">請負額: ¥1,850,000 / 原価消化: ¥269,700</div>
+              </div>
+            </div>
+
+            <!-- 原価バー -->
+            <div>
+              <div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                <div class="bg-blue-600" style="width: 48%;" title="材料費: ¥86,450"></div>
+                <div class="bg-purple-600" style="width: 43%;" title="外注人工: ¥78,000"></div>
+                <div class="bg-amber-500" style="width: 9%;" title="現場経費: ¥20,650"></div>
+              </div>
+              <div class="flex gap-4 text-[11px] text-[var(--muted-foreground)] mt-1.5">
+                <span class="text-blue-700">● 材料費: ¥86,450 (コーナン等)</span>
+                <span class="text-purple-700">● 外注応援: ¥78,000 (大工・電気)</span>
+                <span class="text-amber-700">● 現場経費: ¥20,650 (駐車・ETC等)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 現場2 -->
+          <div class="p-4 rounded-xl border border-[var(--border)] hover:border-blue-900 transition bg-white space-y-3">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">請求済（11/30入金予定）</span>
+                  <strong class="text-sm">杉並区荻窪 T様邸 キッチン・洗面化粧台交換工事</strong>
+                </div>
+                <div class="text-xs text-[var(--muted-foreground)] mt-1">
+                  元請: <strong>タマック工務店</strong> ｜ 工期: 2026-10-25 〜 2026-11-06
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-bold text-emerald-600 tabular-nums">
+                  粗利益: ¥544,200 (粗利率 85.0%)
+                </div>
+                <div class="text-xs text-[var(--muted-foreground)]">請負額: ¥640,000 / 原価消化: ¥95,800</div>
+              </div>
+            </div>
+            <div>
+              <div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                <div class="bg-blue-600" style="width: 36%;"></div>
+                <div class="bg-purple-600" style="width: 41%;"></div>
+                <div class="bg-amber-500" style="width: 23%;"></div>
+              </div>
+              <div class="flex gap-4 text-[11px] text-[var(--muted-foreground)] mt-1.5">
+                <span class="text-blue-700">● 材料費: ¥34,800</span>
+                <span class="text-purple-700">● 外注人工: ¥39,000 (設備工)</span>
+                <span class="text-amber-700">● 産廃処理費: ¥22,000</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB: SCANNER ==================== -->
+    <div id="content-scanner" class="tab-content space-y-6 hidden">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm space-y-6">
+        <div>
+          <h2 class="text-lg font-bold flex items-center gap-2">
+            <span>📸</span> レシート・領収書かんたんOCR読取（receipt-appコア機能）
+          </h2>
+          <p class="text-xs text-[var(--muted-foreground)] mt-1">
+            現場近くのホームセンター（コーナンPRO、カインズ）、駐車場、ガソリンスタンド等のレシートを瞬時に読み取り、勘定科目と現場を自動サジェストします。
+          </p>
+        </div>
+
+        <!-- クイックサンプルトリガーボタン -->
+        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
+          <div class="text-xs font-bold text-slate-700">💡 よくあるリフォーム建材レシートで試す（ワンクリック読取テスト）:</div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="simulateScan('kohnan')" class="bg-white border border-slate-300 hover:border-blue-900 text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow-2xs">
+              🏪 コーナンPRO（石膏ボード・ビス・養生）
+            </button>
+            <button onclick="simulateScan('cainz')" class="bg-white border border-slate-300 hover:border-blue-900 text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow-2xs">
+              🛒 カインズ（フロアボンド・巾木）
+            </button>
+            <button onclick="simulateScan('times')" class="bg-white border border-slate-300 hover:border-blue-900 text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow-2xs">
+              🅿️ タイムズ駐車場（現場パーキング）
+            </button>
+            <button onclick="simulateScan('monotaro')" class="bg-white border border-slate-300 hover:border-blue-900 text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow-2xs">
+              📦 モノタロウ（チップソー替刃・マスク）
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- スキャンエリア -->
+          <div class="border-2 border-dashed border-[var(--border)] rounded-2xl p-6 text-center bg-slate-50 flex flex-col items-center justify-center min-h-[300px]">
+            <div id="scan-placeholder" class="space-y-3">
+              <div class="w-16 h-16 bg-blue-100 text-blue-900 rounded-full flex items-center justify-center text-3xl mx-auto">
+                📷
+              </div>
+              <div class="font-bold text-sm">レシート写真を撮影 または ドロップ</div>
+              <p class="text-xs text-[var(--muted-foreground)]">上の「よくあるレシートで試す」をクリックすると即座にOCR解析を体験できます</p>
+            </div>
+
+            <!-- スキャン結果プレビュー画像 -->
+            <div id="scan-preview" class="hidden w-full space-y-3">
+              <div class="p-4 bg-white border border-slate-200 rounded-xl text-left shadow-xs space-y-2">
+                <div class="flex justify-between items-center text-xs text-slate-500 border-b pb-1">
+                  <span id="preview-date">2026/11/09</span>
+                  <span class="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">OCR認識率 98%</span>
+                </div>
+                <div class="font-bold text-base" id="preview-vendor">コーナンPRO 港北インター店</div>
+                <div class="text-xl font-black text-blue-900 tabular-nums" id="preview-amount">¥28,336 (税込)</div>
+                <div class="text-xs text-slate-600 bg-slate-50 p-2 rounded" id="preview-items">
+                  ・石膏ボード 9.5mm 3×6 × 20枚<br>
+                  ・木割れ防止ビス 35mm × 2箱<br>
+                  ・変成シリコンコーク ホワイト × 10本
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 解析結果＆現場紐付けフォーム -->
+          <div class="bg-white border border-[var(--border)] rounded-2xl p-5 space-y-4 shadow-sm">
+            <h3 class="font-bold text-sm text-[var(--foreground)] flex items-center justify-between">
+              <span>📝 解析データ・現場紐付け</span>
+              <span class="text-xs text-orange-700 bg-orange-50 font-bold px-2 py-0.5 rounded">弥生会計連動対応</span>
+            </h3>
+
+            <div class="space-y-3 text-xs">
+              <div>
+                <label class="block font-semibold mb-1">関連する現場（案件）*</label>
+                <select id="form-project" class="w-full border border-slate-300 rounded-lg p-2 font-bold text-blue-900 bg-blue-50/50">
+                  <option value="proj-001">【施工中】渋谷区富ヶ谷 S様邸 マンション全面改装</option>
+                  <option value="proj-002">【請求中】杉並区荻窪 T様邸 キッチン・洗面交換</option>
+                  <option value="proj-003">【完工】世田谷区桜新町 アパート原状回復203</option>
+                  <option value="none">現場未指定（一般管理費・車両費）</option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block font-semibold mb-1">店舗名・支払先</label>
+                  <input id="form-vendor" type="text" class="w-full border border-slate-300 rounded-lg p-2" value="コーナンPRO 港北インター店">
+                </div>
+                <div>
+                  <label class="block font-semibold mb-1">取引日付</label>
+                  <input id="form-date" type="date" class="w-full border border-slate-300 rounded-lg p-2" value="2026-11-09">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block font-semibold mb-1">支払金額 (税込)</label>
+                  <input id="form-amount" type="number" class="w-full border border-slate-300 rounded-lg p-2 font-bold text-base text-blue-900" value="28336">
+                </div>
+                <div>
+                  <label class="block font-semibold mb-1">弥生勘定科目</label>
+                  <input id="form-account" type="text" class="w-full border border-slate-300 rounded-lg p-2 font-bold" value="材料費（仕入高）">
+                </div>
+              </div>
+
+              <div>
+                <label class="block font-semibold mb-1">支払方法（貸方科目）</label>
+                <select id="form-payment" class="w-full border border-slate-300 rounded-lg p-2">
+                  <option value="business_card">事業用クレジットカード（未払金）</option>
+                  <option value="owner_advance" selected>事業主借（個人立替・個人の財布）</option>
+                  <option value="cash">事業用現金（現金出納帳）</option>
+                  <option value="bank_transfer">銀行振込（普通預金）</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block font-semibold mb-1">工事メモ・摘要</label>
+                <input id="form-memo" type="text" class="w-full border border-slate-300 rounded-lg p-2" value="【富ヶ谷S様邸】石膏ボード9.5mm、木割れ防止ビス、コーキング白一式">
+              </div>
+
+              <!-- 弥生会計即時送信オプション -->
+              <div class="bg-orange-50 border border-orange-200 p-2.5 rounded-lg flex items-center gap-2">
+                <input type="checkbox" id="form-sync-now" checked class="w-4 h-4 text-orange-600 rounded">
+                <label for="form-sync-now" class="text-xs text-orange-900 font-bold cursor-pointer">
+                  登録と同時に弥生会計オンラインへ仕訳送信する
+                </label>
+              </div>
+
+              <button onclick="saveExpense()" class="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-1.5">
+                <span>✅</span> 現場経費として登録する
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB: PROJECTS ==================== -->
+    <div id="content-projects" class="tab-content space-y-6 hidden">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm space-y-4">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-lg font-bold flex items-center gap-2">
+              <span>📁</span> 現場・工事案件一覧
+            </h2>
+            <p class="text-xs text-[var(--muted-foreground)]">元請け会社、請負金額、投入原価、粗利益・粗利率を管理</p>
+          </div>
+          <button onclick="alert('新規現場登録モーダルが開きます（ローカルサーバー版で利用可能）')" class="bg-blue-900 text-white font-bold text-xs px-3 py-2 rounded-lg">
+            ＋ 新規現場登録
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- 現場カード1 -->
+          <div class="border border-[var(--border)] rounded-xl p-4 bg-white space-y-3 shadow-xs">
+            <div class="flex justify-between items-start">
+              <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded">施工中</span>
+              <span class="text-xs text-[var(--muted-foreground)]">工期: 11/01 〜 11/28</span>
+            </div>
+            <h3 class="font-bold text-sm text-[var(--foreground)]">渋谷区富ヶ谷 S様邸 マンション内装・水回り全面改装工事</h3>
+            <div class="text-xs text-[var(--muted-foreground)]">元請: 株式会社大和リビングデザイン</div>
+            <div class="bg-slate-50 p-3 rounded-lg text-xs space-y-1">
+              <div class="flex justify-between">
+                <span>請負金額:</span>
+                <strong class="tabular-nums">¥1,850,000</strong>
+              </div>
+              <div class="flex justify-between text-rose-600">
+                <span>投入原価累計:</span>
+                <strong class="tabular-nums">-¥269,700</strong>
+              </div>
+              <div class="flex justify-between pt-1 border-t font-bold text-emerald-600 text-sm">
+                <span>現場粗利:</span>
+                <strong class="tabular-nums">¥1,580,300 (85.4%)</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- 現場カード2 -->
+          <div class="border border-[var(--border)] rounded-xl p-4 bg-white space-y-3 shadow-xs">
+            <div class="flex justify-between items-start">
+              <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded">請求済（11/30入金）</span>
+              <span class="text-xs text-[var(--muted-foreground)]">工期: 10/25 〜 11/06</span>
+            </div>
+            <h3 class="font-bold text-sm text-[var(--foreground)]">杉並区荻窪 T様邸 キッチン・洗面化粧台交換工事</h3>
+            <div class="text-xs text-[var(--muted-foreground)]">元請: タマック工務店</div>
+            <div class="bg-slate-50 p-3 rounded-lg text-xs space-y-1">
+              <div class="flex justify-between">
+                <span>請負金額:</span>
+                <strong class="tabular-nums">¥640,000</strong>
+              </div>
+              <div class="flex justify-between text-rose-600">
+                <span>投入原価累計:</span>
+                <strong class="tabular-nums">-¥95,800</strong>
+              </div>
+              <div class="flex justify-between pt-1 border-t font-bold text-emerald-600 text-sm">
+                <span>現場粗利:</span>
+                <strong class="tabular-nums">¥544,200 (85.0%)</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB: EXPENSES ==================== -->
+    <div id="content-expenses" class="tab-content space-y-6 hidden">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm space-y-4">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-lg font-bold flex items-center gap-2">
+              <span>🧾</span> 経費・レシート一覧（弥生仕訳台帳）
+            </h2>
+            <p class="text-xs text-[var(--muted-foreground)]">現場別原価と弥生会計への仕訳送信ステータス</p>
+          </div>
+          <button onclick="downloadSampleCsv()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1.5">
+            <span>📥</span> 弥生形式仕訳CSV出力
+          </button>
+        </div>
+
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+              <tr>
+                <th class="p-3">日付</th>
+                <th class="p-3">現場</th>
+                <th class="p-3">店舗・支払先</th>
+                <th class="p-3">勘定科目</th>
+                <th class="p-3">金額 (税込)</th>
+                <th class="p-3">弥生連携</th>
+                <th class="p-3">摘要メモ</th>
+              </tr>
+            </thead>
+            <tbody id="expense-tbody" class="divide-y divide-slate-200">
+              <tr>
+                <td class="p-3 font-semibold">2026-11-02</td>
+                <td class="p-3 font-bold text-blue-900">富ヶ谷S様邸</td>
+                <td class="p-3">コーナンPRO 世田谷店</td>
+                <td class="p-3">材料費（仕入高）</td>
+                <td class="p-3 font-bold tabular-nums">¥86,450</td>
+                <td class="p-3"><span class="bg-orange-100 text-orange-800 font-bold px-2 py-0.5 rounded text-[10px]">連携済 (YY-202611-0082)</span></td>
+                <td class="p-3 text-slate-500">石膏ボード、野縁木材、ビス一式</td>
+              </tr>
+              <tr>
+                <td class="p-3 font-semibold">2026-11-03</td>
+                <td class="p-3 font-bold text-blue-900">富ヶ谷S様邸</td>
+                <td class="p-3">タイムズ富ヶ谷第3</td>
+                <td class="p-3">旅費交通費</td>
+                <td class="p-3 font-bold tabular-nums">¥3,300</td>
+                <td class="p-3"><span class="bg-orange-100 text-orange-800 font-bold px-2 py-0.5 rounded text-[10px]">連携済 (YY-202611-0083)</span></td>
+                <td class="p-3 text-slate-500">現場駐車料金（ハイエース終日）</td>
+              </tr>
+              <tr class="bg-orange-50/40">
+                <td class="p-3 font-semibold">2026-11-04</td>
+                <td class="p-3 font-bold text-blue-900">富ヶ谷S様邸</td>
+                <td class="p-3">首都高速道路 ETC</td>
+                <td class="p-3">旅費交通費</td>
+                <td class="p-3 font-bold tabular-nums">¥1,950</td>
+                <td class="p-3"><span class="bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded text-[10px]">未送信</span></td>
+                <td class="p-3 text-slate-500">資材運搬高速代（用賀〜富ヶ谷）</td>
+              </tr>
+              <tr class="bg-orange-50/40">
+                <td class="p-3 font-semibold">2026-11-07</td>
+                <td class="p-3 font-bold text-blue-900">富ヶ谷S様邸</td>
+                <td class="p-3">モノタロウ Web注文</td>
+                <td class="p-3">消耗品費</td>
+                <td class="p-3 font-bold tabular-nums">¥15,400</td>
+                <td class="p-3"><span class="bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded text-[10px]">未送信</span></td>
+                <td class="p-3 text-slate-500">マルチツール替刃、防塵マスク</td>
+              </tr>
+              <tr class="bg-orange-50/40">
+                <td class="p-3 font-semibold">2026-11-05</td>
+                <td class="p-3 text-slate-400">現場共通</td>
+                <td class="p-3">ENEOS 荻窪SS</td>
+                <td class="p-3">車両費</td>
+                <td class="p-3 font-bold tabular-nums">¥11,200</td>
+                <td class="p-3"><span class="bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded text-[10px]">未送信</span></td>
+                <td class="p-3 text-slate-500">社用車ハイエース軽油満タン</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB: LABOR ==================== -->
+    <div id="content-labor" class="tab-content space-y-6 hidden">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm space-y-4">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-lg font-bold flex items-center gap-2">
+              <span>👷</span> 外注・応援職人の人工（にんく）記録
+            </h2>
+            <p class="text-xs text-[var(--muted-foreground)]">応援大工・電気・クロス職人の人工と源泉所得税（10.21%）を自動計算</p>
+          </div>
+          <button onclick="alert('人工入力フォームが開きます（ローカルサーバー版で利用可能）')" class="bg-blue-900 text-white font-bold text-xs px-3 py-2 rounded-lg">
+            ＋ 人工を記録
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <div class="text-xs text-slate-500">外注人工費 累計</div>
+            <div class="text-xl font-bold mt-1 tabular-nums">¥117,000</div>
+          </div>
+          <div class="p-4 bg-amber-50 rounded-xl border border-amber-200">
+            <div class="text-xs text-amber-800">源泉所得税(10.21%) 累計</div>
+            <div class="text-xl font-bold mt-1 text-amber-900 tabular-nums">-¥11,944</div>
+          </div>
+          <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+            <div class="text-xs text-emerald-800">職人への手取振込額</div>
+            <div class="text-xl font-bold mt-1 text-emerald-900 tabular-nums">¥105,056</div>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-slate-100 text-slate-600 font-semibold border-b">
+              <tr>
+                <th class="p-3">稼働日</th>
+                <th class="p-3">現場</th>
+                <th class="p-3">職人名 / 屋号</th>
+                <th class="p-3">職種</th>
+                <th class="p-3">人工数</th>
+                <th class="p-3">支払総額</th>
+                <th class="p-3">源泉税(10.21%)</th>
+                <th class="p-3">差引手取</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              <tr>
+                <td class="p-3">2026-11-05</td>
+                <td class="p-3 font-bold text-blue-900">富ヶ谷S様邸</td>
+                <td class="p-3 font-semibold">佐藤 健一 (佐藤建築)</td>
+                <td class="p-3">大工（応援）</td>
+                <td class="p-3 font-bold">2.0 人工</td>
+                <td class="p-3 font-bold tabular-nums">¥50,000</td>
+                <td class="p-3 text-amber-700 tabular-nums">-¥5,105</td>
+                <td class="p-3 font-bold text-emerald-700 tabular-nums">¥44,895</td>
+              </tr>
+              <tr>
+                <td class="p-3">2026-11-06</td>
+                <td class="p-3 font-bold text-blue-900">富ヶ谷S様邸</td>
+                <td class="p-3 font-semibold">鈴木 電気工事</td>
+                <td class="p-3">第1種電気工</td>
+                <td class="p-3 font-bold">1.0 人工</td>
+                <td class="p-3 font-bold tabular-nums">¥28,000</td>
+                <td class="p-3 text-amber-700 tabular-nums">-¥2,858</td>
+                <td class="p-3 font-bold text-emerald-700 tabular-nums">¥25,142</td>
+              </tr>
+              <tr>
+                <td class="p-3">2026-10-30</td>
+                <td class="p-3 font-bold text-blue-900">荻窪T様邸</td>
+                <td class="p-3 font-semibold">高橋 設備</td>
+                <td class="p-3">給排水設備工</td>
+                <td class="p-3 font-bold">1.5 人工</td>
+                <td class="p-3 font-bold tabular-nums">¥39,000</td>
+                <td class="p-3 text-amber-700 tabular-nums">-¥3,981</td>
+                <td class="p-3 font-bold text-emerald-700 tabular-nums">¥35,019</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB: YAYOI ==================== -->
+    <div id="content-yayoi" class="tab-content space-y-6 hidden">
+      <div class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm space-y-6">
+        <div>
+          <h2 class="text-lg font-bold flex items-center gap-2 text-orange-950">
+            <span>🔄</span> 弥生会計 連携ハブ（OAuth 2.0 API ＆ CSVエクスポート）
+          </h2>
+          <p class="text-xs text-[var(--muted-foreground)] mt-1">
+            弥生会計オンライン（スマート取引取込API）との直接データ連携により、手入力なしで仕訳帳へ即時反映します。
+          </p>
+        </div>
+
+        <!-- 接続状態カード -->
+        <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xl">
+              ✓
+            </div>
+            <div>
+              <div class="font-bold text-sm text-emerald-900">弥生会計オンライン API接続中 (OAuth2 認証済)</div>
+              <div class="text-xs text-emerald-700">事業所ID: corp_reform_artisan_01 ｜ 仕訳生成元: 現場収支クラウド</div>
+            </div>
+          </div>
+          <span class="text-xs bg-white text-emerald-800 font-bold px-3 py-1.5 rounded-lg border border-emerald-300">
+            トークン有効（2026/11/30迄）
+          </span>
+        </div>
+
+        <!-- API一括送信アクションカード -->
+        <div class="bg-orange-50 border border-orange-200 rounded-2xl p-6 space-y-4">
+          <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+            <div>
+              <div class="text-xs font-bold text-orange-900">スマート取引取込 送信対象</div>
+              <div class="text-2xl font-black text-orange-800 mt-1 tabular-nums" id="sync-target-text">
+                3 件 ｜ 計 ¥28,550
+              </div>
+              <p class="text-xs text-orange-700 mt-1">
+                レシートOCRから登録された未同期の仕訳データを弥生サーバーへ一括送信します
+              </p>
+            </div>
+
+            <button onclick="executeYayoiSync()" id="btn-sync-yayoi" class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-xl text-sm transition shadow-md flex items-center gap-2">
+              <span id="sync-icon">🚀</span>
+              <span id="sync-btn-text">弥生会計へ一括送信する</span>
+            </button>
+          </div>
+
+          <div id="sync-success-banner" class="hidden p-3 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-xl text-xs font-bold flex items-center gap-2">
+            <span>🎉</span> 弥生会計オンラインへ正常に3件の仕訳を送信しました！(仕訳ID: YY-202611-9102, YY-202611-9103, YY-202611-9104)
+          </div>
+        </div>
+
+        <!-- 弥生仕訳CSV出力 -->
+        <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
+          <div>
+            <div class="font-bold text-xs text-slate-800">弥生会計（デスクトップ版・オンライン共通）仕訳日記帳CSV</div>
+            <div class="text-[11px] text-slate-500">25列の弥生公式インポートフォーマットに準拠したCSVを出力します</div>
+          </div>
+          <button onclick="downloadSampleCsv()" class="bg-white border border-slate-300 hover:border-slate-500 text-xs font-bold px-3 py-2 rounded-lg">
+            📥 CSVダウンロード
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-50', 'text-blue-900', 'border-b-2', 'border-blue-900');
+        btn.classList.add('text-[var(--muted-foreground)]');
+      });
+
+      const activeContent = document.getElementById('content-' + tabId);
+      if (activeContent) activeContent.classList.remove('hidden');
+
+      const activeBtn = document.getElementById('tab-' + tabId);
+      if (activeBtn) {
+        activeBtn.classList.remove('text-[var(--muted-foreground)]');
+        activeBtn.classList.add('bg-blue-50', 'text-blue-900', 'border-b-2', 'border-blue-900');
+      }
+    }
+
+    function simulateScan(type) {
+      const preview = document.getElementById('scan-preview');
+      const placeholder = document.getElementById('scan-placeholder');
+      placeholder.classList.add('hidden');
+      preview.classList.remove('hidden');
+
+      if (type === 'kohnan') {
+        document.getElementById('preview-vendor').textContent = 'コーナンPRO 港北インター店';
+        document.getElementById('preview-amount').textContent = '¥28,336 (税込)';
+        document.getElementById('preview-items').innerHTML = '・石膏ボード 9.5mm 3×6 × 20枚<br>・木割れ防止ビス 35mm × 2箱<br>・変成シリコンコーク ホワイト × 10本';
+        document.getElementById('form-vendor').value = 'コーナンPRO 港北インター店';
+        document.getElementById('form-amount').value = 28336;
+        document.getElementById('form-account').value = '材料費（仕入高）';
+        document.getElementById('form-memo').value = '【富ヶ谷S様邸】石膏ボード9.5mm、木割れ防止ビス、コーキング白一式';
+      } else if (type === 'times') {
+        document.getElementById('preview-vendor').textContent = 'タイムズ24 新宿西口第2';
+        document.getElementById('preview-amount').textContent = '¥3,500 (税込)';
+        document.getElementById('preview-items').innerHTML = '・駐車料金 08:15〜17:45 最大料金適用';
+        document.getElementById('form-vendor').value = 'タイムズ24 新宿西口第2';
+        document.getElementById('form-amount').value = 3500;
+        document.getElementById('form-account').value = '旅費交通費';
+        document.getElementById('form-memo').value = '【富ヶ谷S様邸】現場車両駐車料金（ハイエース 終日）';
+      } else if (type === 'cainz') {
+        document.getElementById('preview-vendor').textContent = 'カインズホーム 昭島店';
+        document.getElementById('preview-amount').textContent = '¥10,714 (税込)';
+        document.getElementById('preview-items').innerHTML = '・クッションフロア用ボンド 3kg<br>・ソフト巾木 60mm 25m巻<br>・フロアタイルカッター 替刃';
+        document.getElementById('form-vendor').value = 'カインズホーム 昭島店';
+        document.getElementById('form-amount').value = 10714;
+        document.getElementById('form-account').value = '材料費（仕入高）';
+        document.getElementById('form-memo').value = '【富ヶ谷S様邸】内装CFボンド、ソフト巾木、専用替刃';
+      } else if (type === 'monotaro') {
+        document.getElementById('preview-vendor').textContent = 'モノタロウ （Web建材通販）';
+        document.getElementById('preview-amount').textContent = '¥14,630 (税込)';
+        document.getElementById('preview-items').innerHTML = '・マキタ 充電式チップソーカッタ替刃 × 2<br>・3M 防塵マスク 8805-DS2 10枚入 × 2';
+        document.getElementById('form-vendor').value = 'モノタロウ Web注文';
+        document.getElementById('form-amount').value = 14630;
+        document.getElementById('form-account').value = '消耗品費';
+        document.getElementById('form-memo').value = '【富ヶ谷S様邸】チップソー替刃、防塵マスクDS2';
+      }
+    }
+
+    function saveExpense() {
+      const vendor = document.getElementById('form-vendor').value;
+      const amount = Number(document.getElementById('form-amount').value);
+      const memo = document.getElementById('form-memo').value;
+      const account = document.getElementById('form-account').value;
+      const date = document.getElementById('form-date').value;
+      const syncNow = document.getElementById('form-sync-now').checked;
+
+      const tbody = document.getElementById('expense-tbody');
+      const tr = document.createElement('tr');
+      tr.className = syncNow ? '' : 'bg-orange-50/40';
+      tr.innerHTML = `
+        <td class="p-3 font-semibold">${date}</td>
+        <td class="p-3 font-bold text-blue-900">富ヶ谷S様邸</td>
+        <td class="p-3">${vendor}</td>
+        <td class="p-3">${account}</td>
+        <td class="p-3 font-bold tabular-nums">¥${amount.toLocaleString()}</td>
+        <td class="p-3"><span class="${syncNow ? 'bg-orange-100 text-orange-800' : 'bg-slate-200 text-slate-700'} font-bold px-2 py-0.5 rounded text-[10px]">${syncNow ? '連携済 (YY-202611-NEW)' : '未送信'}</span></td>
+        <td class="p-3 text-slate-500">${memo}</td>
+      `;
+      tbody.prepend(tr);
+
+      alert(`経費「${vendor} (¥${amount.toLocaleString()})」を登録しました！${syncNow ? '\n（弥生会計オンラインへも自動仕訳送信しました）' : ''}`);
+      switchTab('expenses');
+    }
+
+    function executeYayoiSync() {
+      const btn = document.getElementById('btn-sync-yayoi');
+      const icon = document.getElementById('sync-icon');
+      const text = document.getElementById('sync-btn-text');
+
+      icon.textContent = '⏳';
+      text.textContent = '弥生APIへ送信中...';
+      btn.disabled = true;
+
+      setTimeout(() => {
+        icon.textContent = '✅';
+        text.textContent = '送信完了 (3件)';
+        btn.classList.remove('bg-orange-600', 'hover:bg-orange-700');
+        btn.classList.add('bg-emerald-600');
+        document.getElementById('sync-success-banner').classList.remove('hidden');
+        document.getElementById('sync-target-text').textContent = '0 件 ｜ すべて送信完了';
+        document.getElementById('header-unsynced-badge').textContent = '全件送信完了';
+        document.getElementById('header-unsynced-badge').className = 'bg-emerald-600 text-white font-bold px-1.5 py-0.2 rounded-full text-[11px]';
+      }, 1200);
+    }
+
+    function downloadSampleCsv() {
+      const csv = `識別フラグ,伝票番号,決算,取引日付,借方勘定科目,借方補助科目,借方部門,借方税区分,借方金額,借方税額,貸方勘定科目,貸方補助科目,貸方部門,貸方税区分,貸方金額,貸方税額,摘要,番号,期日,タイプ,生成元,仕訳メモ,付箋1,付箋2,調整
+2000,000001,,2026/11/02,"材料費（仕入高）","コーナンPRO","富ヶ谷S様邸","課税仕入 10%",86450,7859,"事業主借","","","対象外",86450,0,"【富ヶ谷S様邸】石膏ボード、野縁木材、ビス一式",,,0,"現場収支クラウド","レシートID:001",1,,no
+2000,000002,,2026/11/03,"旅費交通費","タイムズ24","富ヶ谷S様邸","課税仕入 10%",3300,300,"現金","","","対象外",3300,0,"【富ヶ谷S様邸】現場車両駐車料金",,,0,"現場収支クラウド","レシートID:002",1,,no
+2000,000003,,2026/11/04,"旅費交通費","首都高速","富ヶ谷S様邸","課税仕入 10%",1950,177,"事業主借","","","対象外",1950,0,"【富ヶ谷S様邸】資材運搬高速代",,,0,"現場収支クラウド","レシートID:003",0,,no`;
+
+      const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
+      const blob = new Blob([bom, csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = '弥生会計仕訳日記帳_20261109.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
