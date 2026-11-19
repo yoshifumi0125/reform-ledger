@@ -10,16 +10,12 @@ import {
   PlusCircle, 
   Building2, 
   Calendar, 
-  DollarSign, 
-  ChevronRight, 
   CheckCircle2, 
-  Clock, 
-  FileText,
-  AlertTriangle,
-  Receipt,
-  Users,
-  TrendingUp,
-  X
+  Receipt, 
+  Users, 
+  TrendingUp, 
+  X,
+  AlertTriangle
 } from 'lucide-react';
 
 interface ProjectsViewProps {
@@ -38,7 +34,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   expenses,
   laborRecords,
   onAddProject,
-  onUpdateProject,
+  onUpdateProject: _onUpdateProject,
   onSelectProjectDetail,
   selectedProjectId,
   onCloseDetail,
@@ -49,10 +45,10 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   // 新規現場フォームステート
   const [name, setName] = useState('');
   const [client, setClient] = useState('');
-  const [contractAmount, setContractAmount] = useState<number>(0);
+  const [contractAmount, setContractAmount] = useState<number | ''>('');
   const [category, setCategory] = useState<Project['category']>('interior');
   const [status, setStatus] = useState<ProjectStatus>('in_progress');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState('');
   const [paymentDueDate, setPaymentDueDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -66,8 +62,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   // 新規現場作成
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !client || !contractAmount) {
-      alert('工事名、元請会社、請負金額は必須です。');
+    if (!name || !client || contractAmount === '' || Number(contractAmount) <= 0) {
+      alert('工事名、元請会社、有効な請負金額は必須です。');
       return;
     }
 
@@ -75,7 +71,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
       id: `proj-${Date.now()}`,
       name,
       client,
-      contractAmount,
+      contractAmount: Number(contractAmount),
       taxRate: 0.1,
       status,
       startDate,
@@ -88,10 +84,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     onAddProject(newProject);
     setShowNewModal(false);
 
-    // リセット
     setName('');
     setClient('');
-    setContractAmount(0);
+    setContractAmount('');
     setNotes('');
   };
 
@@ -101,135 +96,145 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   const projectLabor = laborRecords.filter((l) => l.projectId === selectedProjectId);
 
   const detailMaterial = projectExpenses.filter((e) => e.category === 'material').reduce((s, e) => s + e.amount, 0);
-  const detailParking = projectExpenses.filter((e) => e.category === 'parking').reduce((s, e) => s + e.amount, 0);
-  const detailDisposal = projectExpenses.filter((e) => e.category === 'disposal').reduce((s, e) => s + e.amount, 0);
-  const detailOther = projectExpenses.filter((e) => e.category !== 'material' && e.category !== 'parking' && e.category !== 'disposal').reduce((s, e) => s + e.amount, 0);
   const detailLabor = projectLabor.reduce((s, l) => s + l.totalAmount, 0);
-  const detailTotalCost = detailMaterial + detailParking + detailDisposal + detailOther + detailLabor;
-  const detailProfit = (activeDetailProject?.contractAmount || 0) - detailTotalCost;
+  const detailOther = projectExpenses.filter((e) => e.category !== 'material').reduce((s, e) => s + e.amount, 0);
+  const detailTotalCost = detailMaterial + detailLabor + detailOther;
+  const detailProfit = activeDetailProject ? activeDetailProject.contractAmount - detailTotalCost : 0;
   const detailMargin = activeDetailProject && activeDetailProject.contractAmount > 0 
     ? (detailProfit / activeDetailProject.contractAmount) * 100 
     : 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      
-      {/* 上部ヘッダー & フィルター */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+    <div className="space-y-6 pb-12 animate-fade-in">
+      {/* 画面ヘッダー */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Layers size={22} color="var(--primary)" />
-            現場・案件一覧（下請け工事管理）
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center space-x-2">
+            <Layers className="w-5 h-5 text-emerald-600" />
+            <span>現場・工事案件台帳</span>
           </h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            元請けごとの請負額、材料費・外注人工・現場経費を紐付けて現場別粗利を管理します
+          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
+            請負金額と現場投入原価（材料・人工・経費）を対比し、現場別粗利を徹底管理
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={() => setShowNewModal(true)}>
-          <PlusCircle size={16} />
-          <span>新規現場（工事）を追加</span>
+        <button
+          onClick={() => setShowNewModal(true)}
+          className="inline-flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-xs"
+        >
+          <PlusCircle className="w-4 h-4" />
+          <span>新規現場の登録</span>
         </button>
       </div>
 
-      {/* ステータスフィルターバー */}
-      <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+      {/* ステータスフィルターピル */}
+      <div className="flex space-x-2 overflow-x-auto pb-1 text-xs">
         {[
-          { id: 'all', label: 'すべて表示' },
-          { id: 'in_progress', label: '施工中' },
-          { id: 'planning', label: '着工前' },
-          { id: 'completed', label: '完工' },
-          { id: 'invoiced', label: '請求済（入金待ち）' },
-          { id: 'paid', label: '入金完了' },
-        ].map((tab) => (
+          { key: 'all', label: 'すべて' },
+          { key: 'in_progress', label: '施工中' },
+          { key: 'planning', label: '着工前' },
+          { key: 'completed', label: '完工' },
+          { key: 'invoiced', label: '請求済' },
+          { key: 'paid', label: '入金済' },
+        ].map((item) => (
           <button
-            key={tab.id}
-            onClick={() => setFilterStatus(tab.id)}
-            style={{
-              padding: '0.4rem 0.85rem',
-              borderRadius: 'var(--radius-full)',
-              border: filterStatus === tab.id ? '1px solid var(--primary)' : '1px solid var(--border)',
-              backgroundColor: filterStatus === tab.id ? 'var(--primary-light)' : 'var(--surface)',
-              color: filterStatus === tab.id ? 'var(--primary)' : 'var(--text-muted)',
-              fontWeight: filterStatus === tab.id ? 700 : 500,
-              fontSize: '0.825rem',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
+            key={item.key}
+            onClick={() => setFilterStatus(item.key)}
+            className={`px-3 py-1.5 rounded-xl font-semibold transition cursor-pointer ${
+              filterStatus === item.key
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
           >
-            {tab.label}
+            {item.label}
           </button>
         ))}
       </div>
 
-      {/* 現場グリッド */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1rem' }}>
-        {filteredProjects.map((proj) => {
-          const pExpenses = expenses.filter((e) => e.projectId === proj.id);
-          const pLabor = laborRecords.filter((l) => l.projectId === proj.id);
+      {/* 現場カードグリッド（receiptスタイルの角丸カード） */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filteredProjects.map((p) => {
+          const pExpenses = expenses.filter((e) => e.projectId === p.id);
+          const pLabor = laborRecords.filter((l) => l.projectId === p.id);
 
-          const cost = pExpenses.reduce((s, e) => s + e.amount, 0) + pLabor.reduce((s, l) => s + l.totalAmount, 0);
-          const profit = proj.contractAmount - cost;
-          const margin = proj.contractAmount > 0 ? (profit / proj.contractAmount) * 100 : 0;
+          const mat = pExpenses.filter((e) => e.category === 'material').reduce((s, e) => s + e.amount, 0);
+          const lab = pLabor.reduce((s, l) => s + l.totalAmount, 0);
+          const oth = pExpenses.filter((e) => e.category !== 'material').reduce((s, e) => s + e.amount, 0);
+          const totalCost = mat + lab + oth;
+          const profit = p.contractAmount - totalCost;
+          const margin = p.contractAmount > 0 ? (profit / p.contractAmount) * 100 : 0;
+
+          const isGood = margin >= 35;
+          const isWarning = margin < 25;
 
           return (
-            <div 
-              key={proj.id}
-              className="card"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                borderColor: selectedProjectId === proj.id ? 'var(--primary)' : 'var(--border)',
-                boxShadow: selectedProjectId === proj.id ? '0 0 0 2px var(--primary-light)' : 'var(--shadow-sm)'
-              }}
-              onClick={() => onSelectProjectDetail(proj.id)}
+            <div
+              key={p.id}
+              onClick={() => onSelectProjectDetail(p.id)}
+              className="bg-white rounded-2xl border border-slate-200 hover:border-emerald-500 p-5 transition hover:shadow-md cursor-pointer flex flex-col justify-between group"
             >
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  <span className={`badge badge-${proj.status}`}>
-                    {proj.status === 'in_progress' && '施工中'}
-                    {proj.status === 'planning' && '着工前'}
-                    {proj.status === 'completed' && '完工'}
-                    {proj.status === 'invoiced' && '請求済'}
-                    {proj.status === 'paid' && '入金済'}
-                  </span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {proj.startDate} 〜 {proj.endDate}
-                  </span>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div>
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md inline-block mb-1 ${
+                      p.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                      p.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                      p.status === 'paid' ? 'bg-teal-100 text-teal-800' :
+                      'bg-slate-100 text-slate-700'
+                    }`}>
+                      {p.status === 'in_progress' ? '施工中' : p.status === 'completed' ? '完工' : p.status === 'paid' ? '入金済' : p.status === 'invoiced' ? '請求済' : '着工前'}
+                    </span>
+                    <h3 className="text-base font-bold text-slate-800 group-hover:text-emerald-700 transition">
+                      {p.name}
+                    </h3>
+                  </div>
+
+                  <div className="text-right">
+                    <div className={`text-base font-extrabold ${isGood ? 'text-emerald-600' : isWarning ? 'text-rose-600' : 'text-amber-600'}`}>
+                      粗利: ¥{profit.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-400 font-bold">
+                      粗利率: {margin.toFixed(1)}%
+                    </div>
+                  </div>
                 </div>
 
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.25rem', lineHeight: 1.35 }}>
-                  {proj.name}
-                </h3>
-                <div style={{ fontSize: '0.825rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                  元請: <strong>{proj.client}</strong>
+                <div className="text-xs text-slate-400 mb-4">
+                  元請: <span className="font-semibold text-slate-700">{p.client}</span> ｜ 工期: {p.startDate} 〜 {p.endDate}
                 </div>
 
-                {/* 収支サマリー */}
-                <div style={{ backgroundColor: '#f8fafc', padding: '0.75rem', borderRadius: 'var(--radius-md)', marginBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', marginBottom: '0.35rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>請負金額 (売上):</span>
-                    <strong className="amount-text">¥{proj.contractAmount.toLocaleString()}</strong>
+                {/* コスト投入状況 */}
+                <div className="space-y-1.5 pt-3 border-t border-slate-100 text-xs">
+                  <div className="flex justify-between text-slate-500">
+                    <span>請負金額: ¥{p.contractAmount.toLocaleString()}</span>
+                    <span>投入原価: ¥{totalCost.toLocaleString()}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', marginBottom: '0.35rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>投入原価 (資材・人工):</span>
-                    <span className="amount-text" style={{ color: '#b91c1c' }}>-¥{cost.toLocaleString()}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', paddingTop: '0.35rem', borderTop: '1px solid var(--border)' }}>
-                    <span style={{ fontWeight: 700 }}>現在粗利益:</span>
-                    <strong className="amount-text" style={{ color: margin >= 30 ? 'var(--success)' : 'var(--warning)' }}>
-                      ¥{profit.toLocaleString()} ({margin.toFixed(1)}%)
-                    </strong>
+
+                  {/* カラープログレスバー */}
+                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                    <div
+                      title={`材料費: ¥${mat.toLocaleString()}`}
+                      style={{ width: `${p.contractAmount > 0 ? (mat / p.contractAmount) * 100 : 0}%` }}
+                      className="bg-blue-500"
+                    />
+                    <div
+                      title={`外注人工: ¥${lab.toLocaleString()}`}
+                      style={{ width: `${p.contractAmount > 0 ? (lab / p.contractAmount) * 100 : 0}%` }}
+                      className="bg-purple-500"
+                    />
+                    <div
+                      title={`その他経費: ¥${oth.toLocaleString()}`}
+                      style={{ width: `${p.contractAmount > 0 ? (oth / p.contractAmount) * 100 : 0}%` }}
+                      className="bg-amber-500"
+                    />
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                <span>レシート {pExpenses.length}枚 ｜ 人工 {pLabor.length}件</span>
-                <span style={{ color: 'var(--primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 2 }}>
-                  詳細収支を見る <ChevronRight size={14} />
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+                <span>レシート {pExpenses.length} 件 ｜ 応援職人 {pLabor.length} 人工</span>
+                <span className="text-emerald-600 font-bold group-hover:translate-x-0.5 transition">
+                  収支明細を見る →
                 </span>
               </div>
             </div>
@@ -237,186 +242,75 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
         })}
       </div>
 
-      {/* 現場詳細モーダル / パネル */}
+      {/* 現場詳細ドロワー／モーダル */}
       {activeDetailProject && (
-        <div className="modal-overlay" onClick={onCloseDetail}>
-          <div className="modal-content" style={{ maxWidth: 840 }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-2xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span className={`badge badge-${activeDetailProject.status}`}>
-                    {activeDetailProject.status}
-                  </span>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>
-                    {activeDetailProject.name}
-                  </h3>
-                </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                  元請: <strong>{activeDetailProject.client}</strong> ｜ 工期: {activeDetailProject.startDate} 〜 {activeDetailProject.endDate} ｜ 入金予定: {activeDetailProject.paymentDueDate || '未定'}
-                </div>
+                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md inline-block mb-1">
+                  現場収支カルテ
+                </span>
+                <h3 className="text-lg font-bold text-slate-800">{activeDetailProject.name}</h3>
+                <p className="text-xs text-slate-400 mt-0.5">元請: {activeDetailProject.client} ｜ 工期: {activeDetailProject.startDate} 〜 {activeDetailProject.endDate}</p>
               </div>
-              <button 
+              <button
                 onClick={onCloseDetail}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.4rem', color: 'var(--text-muted)' }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
               >
-                <X size={20} />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              
-              {/* 現場別 財務メトリクス */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
-                <div style={{ padding: '0.75rem', backgroundColor: 'var(--primary-light)', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600 }}>請負金額 (売上)</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.2rem' }}>
-                    ¥{activeDetailProject.contractAmount.toLocaleString()}
-                  </div>
-                </div>
-
-                <div style={{ padding: '0.75rem', backgroundColor: '#fee2e2', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#991b1b', fontWeight: 600 }}>投入原価 合計</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#991b1b', marginTop: '0.2rem' }}>
-                    ¥{detailTotalCost.toLocaleString()}
-                  </div>
-                </div>
-
-                <div style={{ padding: '0.75rem', backgroundColor: 'var(--success-bg)', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600 }}>粗利益 (粗利率)</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.2rem' }}>
-                    ¥{detailProfit.toLocaleString()} ({detailMargin.toFixed(1)}%)
-                  </div>
-                </div>
-
-                <div style={{ padding: '0.75rem', backgroundColor: '#f1f5f9', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>請求ステータス</div>
-                  <select 
-                    className="form-select"
-                    value={activeDetailProject.status}
-                    onChange={(e) => {
-                      onUpdateProject({ ...activeDetailProject, status: e.target.value as ProjectStatus });
-                    }}
-                    style={{ marginTop: '0.25rem', padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
-                  >
-                    <option value="planning">着工前</option>
-                    <option value="in_progress">施工中</option>
-                    <option value="completed">完工</option>
-                    <option value="invoiced">請求済</option>
-                    <option value="paid">入金完了</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* 原価内訳 */}
-              <div className="card" style={{ padding: '0.85rem' }}>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-                  現場原価の内訳
-                </h4>
-                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.825rem' }}>
-                  <span>材料費・資材: <strong className="amount-text">¥{detailMaterial.toLocaleString()}</strong></span>
-                  <span>外注応援人工: <strong className="amount-text">¥{detailLabor.toLocaleString()}</strong></span>
-                  <span>コインパーキング: <strong className="amount-text">¥{detailParking.toLocaleString()}</strong></span>
-                  <span>産廃処分費: <strong className="amount-text">¥{detailDisposal.toLocaleString()}</strong></span>
-                  <span>その他現場経費: <strong className="amount-text">¥{detailOther.toLocaleString()}</strong></span>
-                </div>
-              </div>
-
-              {/* 紐付けレシート・経費一覧 */}
+            {/* 収支サマリーカード */}
+            <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
               <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Receipt size={16} />
-                  この現場に紐付いているレシート・経費（{projectExpenses.length}件）
-                </h4>
-
-                {projectExpenses.length === 0 ? (
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', padding: '1rem', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: 'var(--radius-md)' }}>
-                    まだこの現場のレシート経費は登録されていません。「レシート取込」からスキャンして紐付けてください。
-                  </p>
-                ) : (
-                  <div className="data-table-container">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>日付</th>
-                          <th>店舗・支払先</th>
-                          <th>科目</th>
-                          <th>金額</th>
-                          <th>弥生連携</th>
-                          <th>摘要</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {projectExpenses.map((exp) => (
-                          <tr key={exp.id}>
-                            <td style={{ whiteSpace: 'nowrap' }}>{exp.date}</td>
-                            <td>{exp.vendor}</td>
-                            <td>{exp.accountTitle}</td>
-                            <td className="amount-text">¥{exp.amount.toLocaleString()}</td>
-                            <td>
-                              <span className={exp.yayoiSynced ? 'badge badge-yayoi-synced' : 'badge badge-yayoi-unsynced'}>
-                                {exp.yayoiSynced ? '弥生送信済' : '未送信'}
-                              </span>
-                            </td>
-                            <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {exp.memo}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                <span className="text-[11px] text-slate-400 block">請負金額</span>
+                <strong className="text-base font-extrabold text-slate-800">¥{activeDetailProject.contractAmount.toLocaleString()}</strong>
               </div>
-
-              {/* 外注人工一覧 */}
               <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Users size={16} />
-                  この現場の外注・応援職人人工（{projectLabor.length}件）
-                </h4>
-
-                {projectLabor.length === 0 ? (
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', padding: '1rem', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: 'var(--radius-md)' }}>
-                    外注人工の記録はありません。「外注・応援人工」メニューから記録できます。
-                  </p>
-                ) : (
-                  <div className="data-table-container">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>稼働日</th>
-                          <th>職人名 / 屋号</th>
-                          <th>職種</th>
-                          <th>人工数</th>
-                          <th>支払合計 (税抜源泉後)</th>
-                          <th>ステータス</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {projectLabor.map((lab) => (
-                          <tr key={lab.id}>
-                            <td>{lab.date}</td>
-                            <td><strong>{lab.craftsmanName}</strong></td>
-                            <td>{lab.tradeType}</td>
-                            <td>{lab.manDays} 人工</td>
-                            <td className="amount-text">¥{lab.totalAmount.toLocaleString()}</td>
-                            <td>
-                              <span className={`badge ${lab.status === 'paid' ? 'badge-paid' : 'badge-in_progress'}`}>
-                                {lab.status === 'paid' ? '支払完了' : '稼働済'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                <span className="text-[11px] text-slate-400 block">投入原価合計</span>
+                <strong className="text-base font-extrabold text-rose-600">¥{detailTotalCost.toLocaleString()}</strong>
               </div>
-
+              <div>
+                <span className="text-[11px] text-slate-400 block">粗利益 (粗利率)</span>
+                <strong className="text-base font-extrabold text-emerald-600">¥{detailProfit.toLocaleString()} ({detailMargin.toFixed(1)}%)</strong>
+              </div>
             </div>
 
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={onCloseDetail}>
+            {/* 原価内訳リスト */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-slate-700">現場投入原価の内訳:</h4>
+              <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs">
+                <div className="p-3 flex justify-between">
+                  <span className="flex items-center space-x-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
+                    <span>材料費（仕入）:</span>
+                  </span>
+                  <strong className="text-slate-800">¥{detailMaterial.toLocaleString()}</strong>
+                </div>
+                <div className="p-3 flex justify-between">
+                  <span className="flex items-center space-x-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" />
+                    <span>外注・応援職人人工費:</span>
+                  </span>
+                  <strong className="text-slate-800">¥{detailLabor.toLocaleString()}</strong>
+                </div>
+                <div className="p-3 flex justify-between">
+                  <span className="flex items-center space-x-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+                    <span>現場直接経費（パーキング・産廃等）:</span>
+                  </span>
+                  <strong className="text-slate-800">¥{detailOther.toLocaleString()}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={onCloseDetail}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+              >
                 閉じる
               </button>
             </div>
@@ -426,148 +320,118 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
       {/* 新規現場登録モーダル */}
       {showNewModal && (
-        <div className="modal-overlay" onClick={() => setShowNewModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <PlusCircle size={20} color="var(--primary)" />
-                新規現場・案件の登録
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
+          <form onSubmit={handleCreateProject} className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
+                <PlusCircle className="w-5 h-5 text-emerald-600" />
+                <span>新規現場・工事案件の登録</span>
               </h3>
-              <button 
+              <button
+                type="button"
                 onClick={() => setShowNewModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.4rem' }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
               >
-                <X size={20} />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateProject}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                <div className="form-group">
-                  <label className="form-label">工事名・現場名 *</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    value={name} 
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="例: 世田谷区成城 T様邸 キッチン・洗面リフォーム工事"
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">工事名・案件名</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="例: 横浜市港北区 ○○様邸 キッチンリフォーム工事"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">元請会社名（発注元）</label>
+                <input
+                  type="text"
+                  value={client}
+                  onChange={(e) => setClient(e.target.value)}
+                  placeholder="例: 株式会社大和工務店"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">請負金額（税込売上）</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">¥</span>
+                  <input
+                    type="number"
+                    value={contractAmount}
+                    onChange={(e) => setContractAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="0"
+                    className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                     required
                   />
                 </div>
+              </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div className="form-group">
-                    <label className="form-label">元請会社名 *</label>
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={client} 
-                      onChange={(e) => setClient(e.target.value)}
-                      placeholder="例: 株式会社大和工務店"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">請負金額 (税込) *</label>
-                    <input 
-                      type="number" 
-                      className="form-input amount-text" 
-                      value={contractAmount || ''} 
-                      onChange={(e) => setContractAmount(Number(e.target.value))}
-                      placeholder="例: 850000"
-                      required
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">着工日</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    required
+                  />
                 </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div className="form-group">
-                    <label className="form-label">工種カテゴリ</label>
-                    <select 
-                      className="form-select"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value as any)}
-                    >
-                      <option value="interior">内装・クロス・CF</option>
-                      <option value="plumbing">水回り・設備・給排水</option>
-                      <option value="carpentry">大工造作・木工事</option>
-                      <option value="exterior">外壁・塗装・サイディング</option>
-                      <option value="full_renovation">全面フルリノベーション</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">ステータス</label>
-                    <select 
-                      className="form-select"
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value as any)}
-                    >
-                      <option value="planning">着工前</option>
-                      <option value="in_progress">施工中</option>
-                      <option value="completed">完工</option>
-                      <option value="invoiced">請求済</option>
-                      <option value="paid">入金済</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-                  <div className="form-group">
-                    <label className="form-label">着工日</label>
-                    <input 
-                      type="date" 
-                      className="form-input" 
-                      value={startDate} 
-                      onChange={(e) => setStartDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">完工予定日</label>
-                    <input 
-                      type="date" 
-                      className="form-input" 
-                      value={endDate} 
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">入金予定日（支払期日）</label>
-                    <input 
-                      type="date" 
-                      className="form-input" 
-                      value={paymentDueDate} 
-                      onChange={(e) => setPaymentDueDate(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">施工メモ・特記事項</label>
-                  <textarea 
-                    className="form-textarea"
-                    rows={2}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="元請支給品、施工注意点、駐車場所など"
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">完工予定日</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                   />
                 </div>
               </div>
 
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowNewModal(false)}>
-                  キャンセル
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  現場を登録する
-                </button>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">ステータス</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as ProjectStatus)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-semibold"
+                >
+                  <option value="in_progress">施工中</option>
+                  <option value="planning">着工前</option>
+                  <option value="completed">完工</option>
+                  <option value="invoiced">請求済</option>
+                  <option value="paid">入金済</option>
+                </select>
               </div>
-            </form>
-          </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+              <button
+                type="button"
+                onClick={() => setShowNewModal(false)}
+                className="px-4 py-2 text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-700 transition cursor-pointer"
+              >
+                キャンセル
+              </button>
+              <button
+                type="submit"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-xs"
+              >
+                現場を登録する
+              </button>
+            </div>
+          </form>
         </div>
       )}
-
     </div>
   );
 };

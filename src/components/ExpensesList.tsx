@@ -12,21 +12,22 @@ import {
   Download, 
   RefreshCw, 
   CheckCircle2, 
-  Clock, 
-  FileText, 
   Trash2, 
-  Edit3, 
   ExternalLink,
-  Tag,
-  Plus
+  Plus,
+  Image as ImageIcon,
+  Calendar,
+  X,
+  Building2,
+  Tag
 } from 'lucide-react';
 import { YayoiExportService } from '../services/yayoiExport';
-import { YayoiApiService } from '../services/yayoiApi';
 
 interface ExpensesListProps {
   expenses: ExpenseItem[];
   projects: Project[];
   yayoiConfig: YayoiApiConfig;
+  currentMonth?: string;
   onUpdateExpense: (expense: ExpenseItem) => void;
   onDeleteExpense: (id: string) => void;
   onOpenScanner: () => void;
@@ -36,8 +37,9 @@ interface ExpensesListProps {
 export const ExpensesList: React.FC<ExpensesListProps> = ({
   expenses,
   projects,
-  yayoiConfig,
-  onUpdateExpense,
+  yayoiConfig: _yayoiConfig,
+  currentMonth,
+  onUpdateExpense: _onUpdateExpense,
   onDeleteExpense,
   onOpenScanner,
   onOpenYayoiSync,
@@ -46,12 +48,15 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({
   const [selectedProjectFilter, setSelectedProjectFilter] = useState('all');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [selectedYayoiFilter, setSelectedYayoiFilter] = useState('all');
-  const [previewReceipt, setPreviewReceipt] = useState<ExpenseItem | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<ExpenseItem | null>(null);
 
   const projectMap = new Map(projects.map((p) => [p.id, p]));
 
-  // フィルタリング
+  // フィルタリング処理（月選択にも連動）
   const filteredExpenses = expenses.filter((item) => {
+    // 月フィルタ（指定されている場合）
+    if (currentMonth && !item.date.startsWith(currentMonth)) return false;
+
     // 検索語句
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -82,7 +87,7 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({
     return true;
   });
 
-  const unsyncedCount = expenses.filter((e) => !e.yayoiSynced).length;
+  const unsyncedCount = filteredExpenses.filter((e) => !e.yayoiSynced).length;
   const filteredTotal = filteredExpenses.reduce((sum, item) => sum + item.amount, 0);
 
   // CSVダウンロード
@@ -93,65 +98,72 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      
-      {/* 上部ヘッダー */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+    <div className="space-y-6 pb-12 animate-fade-in">
+      {/* 画面ヘッダー */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Receipt size={22} color="var(--primary)" />
-            経費・レシート一覧（弥生仕訳台帳）
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center space-x-2">
+            <Receipt className="w-5 h-5 text-emerald-600" />
+            <span>支出・レシート一覧（弥生仕訳台帳）</span>
           </h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            取り込んだレシート・経費を現場ごとに確認し、弥生会計へAPI送信またはCSV出力できます
+          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
+            OCR読取した経費を現場ごとに管理 ＆ 弥生会計オンラインへ直接同期
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary btn-sm" onClick={handleDownloadCsv}>
-            <Download size={15} />
-            <span>弥生形式CSV出力</span>
+        {/* アクションボタン */}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handleDownloadCsv}
+            className="inline-flex items-center space-x-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-xs"
+          >
+            <Download className="w-4 h-4" />
+            <span>弥生CSV出力</span>
           </button>
-          <button className="btn btn-yayoi btn-sm" onClick={onOpenYayoiSync}>
-            <RefreshCw size={15} />
-            <span>弥生会計API同期 ({unsyncedCount}件)</span>
+          <button
+            onClick={onOpenYayoiSync}
+            className="inline-flex items-center space-x-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 font-bold px-3 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>弥生同期 ({unsyncedCount}件)</span>
           </button>
-          <button className="btn btn-primary btn-sm" onClick={onOpenScanner}>
-            <Plus size={15} />
+          <button
+            onClick={onOpenScanner}
+            className="inline-flex items-center space-x-1.5 bg-amber-400 hover:bg-amber-500 text-slate-900 font-extrabold px-4 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-xs"
+          >
+            <Plus className="w-4 h-4" />
             <span>レシート取込</span>
           </button>
         </div>
       </div>
 
-      {/* フィルター＆検索バー */}
-      <div className="card" style={{ padding: '0.85rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', alignItems: 'center' }}>
-          
+      {/* フィルター＆検索カード */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* キーワード検索 */}
-          <div style={{ position: 'relative' }}>
-            <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)' }} />
-            <input 
-              type="text" 
-              className="form-input" 
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            <input
+              type="text"
               placeholder="店舗名・品目・メモで検索..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ paddingLeft: '2rem' }}
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
             />
           </div>
 
           {/* 現場フィルター */}
           <div>
-            <select 
-              className="form-select"
+            <select
               value={selectedProjectFilter}
               onChange={(e) => setSelectedProjectFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
             >
               <option value="all">すべての現場</option>
-              <option value="unassigned">現場未指定（一般管理）</option>
+              <option value="unassigned">現場未指定（一般管理費）</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name.slice(0, 16)}...
+                  【{p.client}】{p.name}
                 </option>
               ))}
             </select>
@@ -159,15 +171,15 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({
 
           {/* カテゴリフィルター */}
           <div>
-            <select 
-              className="form-select"
+            <select
               value={selectedCategoryFilter}
               onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
             >
               <option value="all">すべての費目</option>
               <option value="material">材料費（仕入高）</option>
               <option value="parking">現場駐車場代</option>
-              <option value="transport">交通費・高速・燃料</option>
+              <option value="transport">交通費・高速代</option>
               <option value="disposal">産廃処分費</option>
               <option value="tools">消耗品費・工具</option>
             </select>
@@ -175,176 +187,204 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({
 
           {/* 弥生連携ステータス */}
           <div>
-            <select 
-              className="form-select"
+            <select
               value={selectedYayoiFilter}
               onChange={(e) => setSelectedYayoiFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
             >
               <option value="all">弥生連携: すべて</option>
               <option value="unsynced">未送信のみ ({unsyncedCount}件)</option>
               <option value="synced">送信済のみ</option>
             </select>
           </div>
-
         </div>
 
         {/* 絞り込みサマリー */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          <span>該当件数: <strong>{filteredExpenses.length} 件</strong></span>
-          <span>合計金額: <strong className="amount-text" style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>¥{filteredTotal.toLocaleString()}</strong></span>
+        <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs text-slate-500 font-medium">
+          <span>表示件数: <strong className="text-slate-800">{filteredExpenses.length} 件</strong></span>
+          <span>合計金額: <strong className="text-base font-extrabold text-slate-900">¥{filteredTotal.toLocaleString()}</strong></span>
         </div>
       </div>
 
-      {/* 経費テーブル */}
-      <div className="data-table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>発生日</th>
-              <th>現場（工事名）</th>
-              <th>店舗・購入先</th>
-              <th>勘定科目</th>
-              <th>支払金額 (税込)</th>
-              <th>支払元</th>
-              <th>弥生会計連携</th>
-              <th>摘要 / メモ</th>
-              <th style={{ textAlign: 'center' }}>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredExpenses.length === 0 ? (
-              <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                  該当する経費データがありません
-                </td>
-              </tr>
-            ) : (
-              filteredExpenses.map((item) => {
-                const project = item.projectId ? projectMap.get(item.projectId) : undefined;
+      {/* レシートカード一覧（receiptスタイルのカードデザイン） */}
+      <div className="space-y-3">
+        {filteredExpenses.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
+            <Receipt className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+            <p className="font-bold text-slate-600">該当するレシート・支出がありません</p>
+            <p className="text-xs text-slate-400 mt-1">「レシート取込」から新しいレシートを撮影または登録してください。</p>
+          </div>
+        ) : (
+          filteredExpenses.map((item) => {
+            const project = item.projectId ? projectMap.get(item.projectId) : undefined;
 
-                return (
-                  <tr key={item.id}>
-                    <td style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>
-                      {item.date}
-                    </td>
+            return (
+              <div
+                key={item.id}
+                onClick={() => setSelectedReceipt(item)}
+                className="group bg-white rounded-2xl border border-slate-200 hover:border-emerald-500 p-4 sm:p-5 transition hover:shadow-sm cursor-pointer"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {/* 左側: 店舗名・日付・現場・科目 */}
+                  <div className="flex items-start space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-extrabold shrink-0 text-xs">
+                      {item.category === 'material' ? '材' : item.category === 'parking' ? '駐' : item.category === 'disposal' ? '廃' : '経'}
+                    </div>
 
-                    <td style={{ maxWidth: 180 }}>
-                      {project ? (
-                        <div title={project.name}>
-                          <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '0.825rem' }}>
-                            {project.name.length > 18 ? project.name.slice(0, 18) + '...' : project.name}
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong className="text-base font-bold text-slate-800 group-hover:text-emerald-700 transition">
+                          {item.vendor}
+                        </strong>
+
+                        {/* 現場バッジ */}
+                        {project ? (
+                          <span className="text-[11px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md font-bold">
+                            {project.name}
                           </span>
-                        </div>
-                      ) : (
-                        <span style={{ color: 'var(--text-light)', fontSize: '0.78rem' }}>現場未指定</span>
-                      )}
-                    </td>
+                        ) : (
+                          <span className="text-[11px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-medium">
+                            一般経費
+                          </span>
+                        )}
 
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{item.vendor}</div>
-                      {item.receiptImageUrl && (
-                        <button 
-                          onClick={() => setPreviewReceipt(item)}
-                          style={{ 
-                            background: 'none', 
-                            border: 'none', 
-                            color: 'var(--primary)', 
-                            fontSize: '0.725rem', 
-                            cursor: 'pointer', 
-                            display: 'inline-flex', 
-                            alignItems: 'center', 
-                            gap: 2,
-                            padding: 0 
-                          }}
-                        >
-                          <ExternalLink size={11} /> レシート写真
-                        </button>
-                      )}
-                    </td>
+                        {/* 弥生連携ステータスバッジ */}
+                        {item.yayoiSynced ? (
+                          <span className="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-md font-bold flex items-center space-x-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>弥生送信済</span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-md font-bold">
+                            弥生未送信
+                          </span>
+                        )}
+                      </div>
 
-                    <td>
-                      <span style={{ fontSize: '0.825rem' }}>{item.accountTitle}</span>
-                    </td>
-
-                    <td className="amount-text" style={{ fontSize: '0.95rem', fontWeight: 700 }}>
-                      ¥{item.amount.toLocaleString()}
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginLeft: '0.25rem' }}>
-                        ({item.taxRate * 100}%)
-                      </span>
-                    </td>
-
-                    <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {item.paymentMethod === 'business_card' && 'カード'}
-                      {item.paymentMethod === 'owner_advance' && '事業主借'}
-                      {item.paymentMethod === 'cash' && '現金'}
-                      {item.paymentMethod === 'bank_transfer' && '口座振込'}
-                    </td>
-
-                    <td>
-                      {item.yayoiSynced ? (
-                        <span className="badge badge-yayoi-synced" title={`送信済: ${item.yayoiJournalId || ''}`}>
-                          <CheckCircle2 size={12} />
-                          連携済
+                      <div className="text-xs text-slate-400 mt-1 flex flex-wrap items-center gap-3">
+                        <span className="flex items-center space-x-1">
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>{item.date}</span>
                         </span>
-                      ) : (
-                        <span className="badge badge-yayoi-unsynced">
-                          <Clock size={12} />
-                          未送信
-                        </span>
-                      )}
-                    </td>
+                        <span>•</span>
+                        <span className="font-medium text-slate-600">{item.accountTitle}</span>
+                        {item.memo && (
+                          <>
+                            <span>•</span>
+                            <span className="text-slate-500">{item.memo}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-                    <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {item.memo}
-                    </td>
+                  {/* 右側: 金額 ＆ 削除アクション */}
+                  <div className="flex items-center space-x-4 ml-auto">
+                    <div className="text-right">
+                      <div className="text-lg sm:text-xl font-extrabold text-slate-800">
+                        ¥{item.amount.toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        内税: ¥{item.taxAmount.toLocaleString()} ({item.taxRate * 100}%)
+                      </div>
+                    </div>
 
-                    <td style={{ textAlign: 'center' }}>
-                      <button 
-                        onClick={() => onDeleteExpense(item.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', padding: '0.25rem' }}
-                        title="削除"
-                        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-light)')}
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteExpense(item.id);
+                      }}
+                      className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                      title="この支出を削除"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
-      {/* レシート画像プレビューモーダル */}
-      {previewReceipt && (
-        <div className="modal-overlay" onClick={() => setPreviewReceipt(null)}>
-          <div className="modal-content" style={{ maxWidth: 500 }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>
-                {previewReceipt.vendor}（¥{previewReceipt.amount.toLocaleString()}）
+      {/* レシート詳細モーダル（画像 ＆ 仕訳プレビュー） */}
+      {selectedReceipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
+                <Receipt className="w-5 h-5 text-emerald-600" />
+                <span>レシート詳細 ＆ 弥生仕訳情報</span>
               </h3>
-              <button onClick={() => setPreviewReceipt(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                ✕
+              <button
+                onClick={() => setSelectedReceipt(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="modal-body" style={{ textAlign: 'center' }}>
-              <img 
-                src={previewReceipt.receiptImageUrl} 
-                alt="Receipt" 
-                style={{ maxWidth: '100%', maxHeight: 450, borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }} 
-              />
-              <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'left' }}>
-                <div><strong>取引日:</strong> {previewReceipt.date}</div>
-                <div><strong>摘要:</strong> {previewReceipt.memo}</div>
-                <div><strong>弥生仕訳ID:</strong> {previewReceipt.yayoiJournalId || '未同期'}</div>
+
+            {/* レシート画像プレビュー（存在する場合） */}
+            {selectedReceipt.receiptImageUrl && (
+              <div className="rounded-2xl overflow-hidden border border-slate-200 max-h-64 flex items-center justify-center bg-slate-900/5">
+                <img
+                  src={selectedReceipt.receiptImageUrl}
+                  alt="レシート原本"
+                  className="max-h-64 object-contain"
+                />
               </div>
+            )}
+
+            {/* 詳細情報グリッド */}
+            <div className="space-y-2.5 text-xs sm:text-sm">
+              <div className="flex justify-between py-1.5 border-b border-slate-100">
+                <span className="text-slate-400">購入店舗</span>
+                <strong className="text-slate-800">{selectedReceipt.vendor}</strong>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-100">
+                <span className="text-slate-400">支払金額 (税込)</span>
+                <strong className="text-base font-extrabold text-emerald-600">¥{selectedReceipt.amount.toLocaleString()}</strong>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-100">
+                <span className="text-slate-400">取引日</span>
+                <span className="font-semibold text-slate-800">{selectedReceipt.date}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-100">
+                <span className="text-slate-400">紐付け現場</span>
+                <span className="font-bold text-blue-600">
+                  {selectedReceipt.projectId ? projectMap.get(selectedReceipt.projectId)?.name || '現場あり' : '一般管理費（現場指定なし）'}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-100">
+                <span className="text-slate-400">弥生 借方科目</span>
+                <span className="font-semibold text-slate-800">{selectedReceipt.accountTitle}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-100">
+                <span className="text-slate-400">弥生同期ステータス</span>
+                <span>
+                  {selectedReceipt.yayoiSynced ? (
+                    <span className="text-emerald-600 font-bold">
+                      送信完了（ID: {selectedReceipt.yayoiJournalId || '自動採番'}）
+                    </span>
+                  ) : (
+                    <span className="text-orange-600 font-bold">未送信</span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setSelectedReceipt(null)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+              >
+                閉じる
+              </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 };

@@ -8,17 +8,15 @@ import {
 import { 
   RefreshCw, 
   CheckCircle2, 
-  AlertCircle, 
   Download, 
   Settings, 
   Key, 
-  Server, 
   ShieldCheck, 
-  Clock, 
   ArrowRight,
   Database,
   ExternalLink,
-  X
+  X,
+  FileSpreadsheet
 } from 'lucide-react';
 import { YayoiApiService } from '../services/yayoiApi';
 import { YayoiExportService } from '../services/yayoiExport';
@@ -41,17 +39,15 @@ export const YayoiSyncModal: React.FC<YayoiSyncModalProps> = ({
   onBulkSyncComplete,
   onClose,
 }) => {
-  const [activeTab, setActiveTab] = useState<'sync' | 'csv' | 'settings' | 'logs'>('sync');
+  const [activeTab, setActiveTab] = useState<'sync' | 'csv' | 'settings'>('sync');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
-  const [logs, setLogs] = useState<YayoiSyncLog[]>(() => StorageService.getYayoiLogs());
 
   // 設定フォーム
   const [clientId, setClientId] = useState(yayoiConfig.clientId);
   const [clientSecret, setClientSecret] = useState(yayoiConfig.clientSecret);
   const [companyId, setCompanyId] = useState(yayoiConfig.companyId);
   const [defaultCreditAccount, setDefaultCreditAccount] = useState(yayoiConfig.defaultCreditAccount);
-  const [defaultDebitAccount, setDefaultDebitAccount] = useState(yayoiConfig.defaultDebitAccount);
 
   const unsyncedExpenses = expenses.filter((e) => !e.yayoiSynced);
   const totalUnsyncedAmount = unsyncedExpenses.reduce((sum, e) => sum + e.amount, 0);
@@ -66,7 +62,6 @@ export const YayoiSyncModal: React.FC<YayoiSyncModalProps> = ({
       if (res.success) {
         setSyncResult(res.message);
         
-        // 仕訳IDのマッピング
         const mapping: Record<string, string> = {};
         const syncedIds: string[] = [];
         res.assignedJournalIds?.forEach((item) => {
@@ -75,7 +70,6 @@ export const YayoiSyncModal: React.FC<YayoiSyncModalProps> = ({
         });
 
         onBulkSyncComplete(syncedIds, mapping);
-        setLogs(StorageService.getYayoiLogs());
       } else {
         setSyncResult(`エラー: ${res.message}`);
       }
@@ -99,382 +93,224 @@ export const YayoiSyncModal: React.FC<YayoiSyncModalProps> = ({
         companyId: auth.companyId,
       };
       onUpdateConfig(updatedConfig);
-      alert('弥生IDアカウントとのOAuth2.0認証が完了しました！');
-    } catch (e) {
-      alert('認証エラーが発生しました。');
+      setCompanyId(auth.companyId);
+      alert('弥生ID（スマート取引取込API）と正常に接続完了しました！');
+    } catch (err) {
+      console.error(err);
+      alert('認証に失敗しました。');
     } finally {
       setIsSyncing(false);
     }
   };
 
-  // 設定保存
-  const handleSaveSettings = (e: React.FormEvent) => {
-    e.preventDefault();
-    const updated: YayoiApiConfig = {
-      ...yayoiConfig,
-      clientId,
-      clientSecret,
-      companyId,
-      defaultCreditAccount,
-      defaultDebitAccount,
-    };
-    onUpdateConfig(updated);
-    StorageService.saveYayoiConfig(updated);
-    alert('弥生会計API連携設定を保存しました。');
-  };
-
-  // 弥生CSVダウンロード
+  // CSVダウンロード
   const handleDownloadCsv = () => {
     const csv = YayoiExportService.generateYayoiCsv(expenses, projects);
     const dateStr = new Date().toISOString().split('T')[0];
-    YayoiExportService.downloadCsv(csv, `弥生会計仕訳日記帳_${dateStr}.csv`);
+    YayoiExportService.downloadCsv(csv, `弥生会計_仕訳日記帳取込用_${dateStr}.csv`);
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: 760 }} onClick={(e) => e.stopPropagation()}>
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-2xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto">
         {/* モーダルヘッダー */}
-        <div className="modal-header" style={{ backgroundColor: 'var(--yayoi-bg)', borderBottom: '1px solid var(--yayoi-border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <div style={{ 
-              width: 32, 
-              height: 32, 
-              borderRadius: 8, 
-              backgroundColor: 'var(--yayoi)', 
-              color: '#ffffff',
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center' 
-            }}>
-              <RefreshCw size={18} />
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
+              <RefreshCw className="w-5 h-5" />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#9a3412', margin: 0 }}>
-                弥生会計 連携ハブ（Yayoi API / CSV）
+              <h3 className="text-base sm:text-lg font-bold text-slate-800">
+                弥生会計 連携ハブ（スマート取引取込）
               </h3>
-              <p style={{ fontSize: '0.78rem', color: '#c2410c', margin: 0 }}>
-                下請け現場のレシート経費を弥生会計オンラインへ直接API連携＆自動仕訳
+              <p className="text-xs text-slate-400">
+                公式API直接送信 ＆ 仕訳日記帳インポートCSV生成
               </p>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9a3412' }}>
-            <X size={20} />
+          <button
+            onClick={onClose}
+            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* タブナビゲーション */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 1.5rem', backgroundColor: '#ffffff' }}>
-          {[
-            { id: 'sync', label: 'API一括送信' },
-            { id: 'csv', label: '弥生仕訳CSV出力' },
-            { id: 'settings', label: 'API接続設定' },
-            { id: 'logs', label: '連携ログ履歴' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              style={{
-                padding: '0.75rem 1rem',
-                border: 'none',
-                background: 'none',
-                borderBottom: activeTab === tab.id ? '2px solid var(--yayoi)' : '2px solid transparent',
-                color: activeTab === tab.id ? 'var(--yayoi)' : 'var(--text-muted)',
-                fontWeight: activeTab === tab.id ? 700 : 500,
-                fontSize: '0.875rem',
-                cursor: 'pointer'
-              }}
-            >
-              {tab.label}
-              {tab.id === 'sync' && unsyncedExpenses.length > 0 && (
-                <span style={{ marginLeft: 6, backgroundColor: 'var(--yayoi)', color: '#ffffff', fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: 8 }}>
-                  {unsyncedExpenses.length}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* モーダル本文 */}
-        <div className="modal-body" style={{ minHeight: 340 }}>
-          
-          {/* TAB 1: API一括送信 */}
-          {activeTab === 'sync' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              
-              {/* 接続ステータスカード */}
-              <div style={{
-                padding: '1rem',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: yayoiConfig.isConnected ? 'var(--success-bg)' : '#fef2f2',
-                border: `1px solid ${yayoiConfig.isConnected ? 'var(--success-border)' : '#fecaca'}`,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '0.75rem'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  {yayoiConfig.isConnected ? (
-                    <CheckCircle2 size={20} color="var(--success)" />
-                  ) : (
-                    <AlertCircle size={20} color="var(--danger)" />
-                  )}
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: yayoiConfig.isConnected ? '#065f46' : '#991b1b' }}>
-                      {yayoiConfig.isConnected ? '弥生会計オンライン API接続中' : '弥生会計API未接続'}
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: yayoiConfig.isConnected ? '#047857' : '#b91c1c' }}>
-                      事業所ID: {yayoiConfig.companyId} ｜ 認証方式: OAuth 2.0 (SmartConnect)
-                    </div>
-                  </div>
-                </div>
-
-                {!yayoiConfig.isConnected ? (
-                  <button className="btn btn-yayoi btn-sm" onClick={handleOAuthConnect}>
-                    弥生IDで認証する
-                  </button>
-                ) : (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    有効期限: {yayoiConfig.tokenExpiresAt?.split('T')[0]}
-                  </span>
-                )}
-              </div>
-
-              {/* 未送信サマリー */}
-              <div className="card" style={{ backgroundColor: '#f8fafc' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>弥生会計へ未送信のレシート経費</div>
-                    <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.25rem' }}>
-                      {unsyncedExpenses.length} 件 ｜ ¥{totalUnsyncedAmount.toLocaleString()}
-                    </div>
-                  </div>
-
-                  <button 
-                    className="btn btn-yayoi btn-lg"
-                    onClick={handleStartApiSync}
-                    disabled={isSyncing || unsyncedExpenses.length === 0 || !yayoiConfig.isConnected}
-                  >
-                    <RefreshCw size={18} className={isSyncing ? 'spin-animation' : ''} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
-                    <span>{isSyncing ? '弥生APIへ送信中...' : '弥生会計へ一括送信'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {syncResult && (
-                <div style={{
-                  padding: '0.85rem 1rem',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: syncResult.startsWith('エラー') ? '#fef2f2' : 'var(--success-bg)',
-                  border: `1px solid ${syncResult.startsWith('エラー') ? '#fecaca' : 'var(--success-border)'}`,
-                  fontSize: '0.85rem',
-                  color: syncResult.startsWith('エラー') ? '#991b1b' : '#065f46',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}>
-                  <CheckCircle2 size={16} />
-                  <span>{syncResult}</span>
-                </div>
-              )}
-
-              {/* 未送信リストプレビュー */}
-              <div>
-                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                  送信対象の仕訳（スマート取引取込形式）:
-                </h4>
-                {unsyncedExpenses.length === 0 ? (
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem', backgroundColor: '#f8fafc', borderRadius: 'var(--radius-md)' }}>
-                    すべてのレシート・経費が弥生会計へ送信済みです
-                  </p>
-                ) : (
-                  <div className="data-table-container" style={{ maxHeight: 220, overflowY: 'auto' }}>
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>日付</th>
-                          <th>借方勘定科目</th>
-                          <th>補助科目/店名</th>
-                          <th>金額</th>
-                          <th>貸方科目</th>
-                          <th>摘要</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {unsyncedExpenses.map((exp) => (
-                          <tr key={exp.id}>
-                            <td>{exp.date}</td>
-                            <td style={{ fontWeight: 600 }}>{exp.accountTitle}</td>
-                            <td>{exp.subAccountTitle || exp.vendor}</td>
-                            <td className="amount-text" style={{ fontWeight: 700 }}>¥{exp.amount.toLocaleString()}</td>
-                            <td style={{ color: 'var(--text-muted)' }}>{yayoiConfig.defaultCreditAccount}</td>
-                            <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{exp.memo}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-            </div>
-          )}
-
-          {/* TAB 2: 弥生仕訳CSV出力 */}
-          {activeTab === 'csv' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div className="card" style={{ backgroundColor: '#f8fafc' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Database size={18} color="var(--primary)" />
-                  弥生会計 仕訳日記帳 CSVインポート機能
-                </h4>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                  弥生会計デスクトップ版（プロフェッショナル / スタンダード）または弥生会計オンラインにそのままドラッグ＆ドロップで取り込める、弥生公式仕様（25列形式）の仕訳CSVを生成・出力します。
-                </p>
-
-                <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem' }}>
-                  <button className="btn btn-primary" onClick={handleDownloadCsv}>
-                    <Download size={16} />
-                    <span>弥生仕訳CSVをダウンロード ({expenses.length}件)</span>
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', backgroundColor: '#ffffff', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1rem' }}>
-                <strong>弥生会計への取込手順:</strong>
-                <ol style={{ paddingLeft: '1.2rem', marginTop: '0.5rem', lineHeight: 1.8 }}>
-                  <li>上のボタンから「弥生会計仕訳データ.csv」をダウンロードします。</li>
-                  <li>弥生会計を起動し、メニューバーの <strong>「ファイル」 &gt; 「インポート」</strong> を選択します。</li>
-                  <li>取込形式で <strong>「仕訳日記帳」</strong> を選び、ダウンロードしたCSVファイルを指定してインポートします。</li>
-                </ol>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: API設定 */}
-          {activeTab === 'settings' && (
-            <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                
-                <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                  <label className="form-label">弥生会計種別</label>
-                  <select 
-                    className="form-select"
-                    value={yayoiConfig.yayoiType}
-                    onChange={(e) => onUpdateConfig({ ...yayoiConfig, yayoiType: e.target.value as any })}
-                  >
-                    <option value="online">弥生会計 オンライン / 弥生青色申告 オンライン（スマート取引取込API）</option>
-                    <option value="desktop">弥生会計 デスクトップ版（弥生ドライブ / CSVインポート連携）</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Client ID (APIキー)</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    value={clientId} 
-                    onChange={(e) => setClientId(e.target.value)}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Client Secret (シークレット)</label>
-                  <input 
-                    type="password" 
-                    className="form-input" 
-                    value={clientSecret} 
-                    onChange={(e) => setClientSecret(e.target.value)}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">事業所ID (Company ID)</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    value={companyId} 
-                    onChange={(e) => setCompanyId(e.target.value)}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">デフォルト貸方科目（個人事業主向け）</label>
-                  <select 
-                    className="form-select"
-                    value={defaultCreditAccount}
-                    onChange={(e) => setDefaultCreditAccount(e.target.value)}
-                  >
-                    <option value="事業主借">事業主借（個人の財布・個人クレカ立替の定番）</option>
-                    <option value="現金">事業用現金（現金出納帳）</option>
-                    <option value="未払金">未払金（事業用クレジットカード）</option>
-                    <option value="普通預金">普通預金（事業用口座）</option>
-                  </select>
-                </div>
-
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <button type="submit" className="btn btn-primary">
-                  設定を保存
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* TAB 4: 連携ログ */}
-          {activeTab === 'logs' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                弥生会計APIとの通信履歴（最新50件）
-              </div>
-
-              <div className="data-table-container">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>日時</th>
-                      <th>送信種別</th>
-                      <th>件数</th>
-                      <th>合計金額</th>
-                      <th>ステータス</th>
-                      <th>弥生APIレスポンス</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.map((log) => (
-                      <tr key={log.id}>
-                        <td style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>{log.timestamp}</td>
-                        <td>
-                          {log.type === 'api_export' && 'スマート取引取込API'}
-                          {log.type === 'csv_download' && '仕訳CSV出力'}
-                        </td>
-                        <td style={{ fontWeight: 600 }}>{log.count} 件</td>
-                        <td className="amount-text">¥{log.totalAmount.toLocaleString()}</td>
-                        <td>
-                          <span className={`badge ${log.status === 'success' ? 'badge-paid' : 'badge-in_progress'}`}>
-                            {log.status === 'success' ? '成功 (200 OK)' : '失敗'}
-                          </span>
-                        </td>
-                        <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{log.responseMessage}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-        </div>
-
-        {/* モーダルフッター */}
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>
-            閉じる
+        <div className="flex space-x-1 border-b border-slate-100 text-xs sm:text-sm font-semibold">
+          <button
+            onClick={() => setActiveTab('sync')}
+            className={`px-4 py-2 border-b-2 transition cursor-pointer ${
+              activeTab === 'sync'
+                ? 'border-orange-500 text-orange-600 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            API直接一括送信 ({unsyncedExpenses.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('csv')}
+            className={`px-4 py-2 border-b-2 transition cursor-pointer ${
+              activeTab === 'csv'
+                ? 'border-orange-500 text-orange-600 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            仕訳CSV出力（25列形式）
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-4 py-2 border-b-2 transition cursor-pointer ${
+              activeTab === 'settings'
+                ? 'border-orange-500 text-orange-600 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            API接続設定
           </button>
         </div>
 
+        {/* タブ1: API一括送信 */}
+        {activeTab === 'sync' && (
+          <div className="space-y-4">
+            {/* 接続状況バナー */}
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                <div>
+                  <div className="text-xs font-bold text-slate-700">弥生スマート取引取込APIステータス</div>
+                  <div className="text-[11px] text-slate-400">事業所ID: {companyId || '未設定'}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleOAuthConnect}
+                disabled={isSyncing}
+                className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs transition cursor-pointer shadow-xs"
+              >
+                弥生ID再認証
+              </button>
+            </div>
+
+            {/* 未送信サマリー */}
+            <div className="bg-orange-50/60 rounded-2xl p-5 border border-orange-200 text-center space-y-2">
+              <div className="text-xs font-bold text-orange-800">未送信の現場経費レシート</div>
+              <div className="text-3xl font-extrabold text-orange-950">
+                {unsyncedExpenses.length} <span className="text-sm font-normal">件</span>
+              </div>
+              <div className="text-xs text-orange-700">
+                合計金額: <strong>¥{totalUnsyncedAmount.toLocaleString()}</strong>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={handleStartApiSync}
+                  disabled={isSyncing || unsyncedExpenses.length === 0}
+                  className="inline-flex items-center space-x-2 bg-orange-600 hover:bg-orange-700 text-white font-extrabold px-6 py-3 rounded-2xl text-sm transition cursor-pointer shadow-md shadow-orange-600/20 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isSyncing ? '弥生へ仕訳送信中...' : '弥生会計へ一括自動送信する'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 送信結果 */}
+            {syncResult && (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl text-xs sm:text-sm font-semibold flex items-center space-x-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>{syncResult}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* タブ2: CSV出力 */}
+        {activeTab === 'csv' && (
+          <div className="space-y-4">
+            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 space-y-3">
+              <div className="flex items-center space-x-3">
+                <FileSpreadsheet className="w-6 h-6 text-emerald-600" />
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800">弥生会計「仕訳日記帳」公式インポート準拠CSV</h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    弥生会計デスクトップ版（プロ/スタンダード）およびオンライン版の両方で取り込み可能です。
+                  </p>
+                </div>
+              </div>
+
+              <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside bg-white p-3 rounded-xl border border-slate-100">
+                <li>借方科目: 材料費（仕入高）、旅費交通費、消耗品費など自動割当</li>
+                <li>貸方科目: 事業主借（個人立替）/ 未払金（法人カード）に対応</li>
+                <li>摘要欄: 【現場名】＋店舗名＋品目メモをフォーマット出力</li>
+              </ul>
+
+              <button
+                onClick={handleDownloadCsv}
+                className="inline-flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-xs"
+              >
+                <Download className="w-4 h-4" />
+                <span>弥生仕訳日記帳CSVをダウンロード ({expenses.length}件)</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* タブ3: 設定 */}
+        {activeTab === 'settings' && (
+          <div className="space-y-3 text-xs sm:text-sm">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1">事業所ID</label>
+              <input
+                type="text"
+                value={companyId}
+                onChange={(e) => setCompanyId(e.target.value)}
+                placeholder="yayoi-corp-10492"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1">既定の貸方科目（決済元）</label>
+              <select
+                value={defaultCreditAccount}
+                onChange={(e) => setDefaultCreditAccount(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-semibold"
+              >
+                <option value="事業主借">事業主借（個人立替・一人親方定番）</option>
+                <option value="未払金">未払金（法人ビジネスカード決済）</option>
+                <option value="現金">現金（現場小口現金）</option>
+                <option value="普通預金">普通預金（口座振込）</option>
+              </select>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateConfig({
+                    ...yayoiConfig,
+                    companyId,
+                    defaultCreditAccount,
+                  });
+                  alert('設定を保存しました。');
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-xs"
+              >
+                設定を保存
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* フッター */}
+        <div className="pt-3 border-t border-slate-100 flex justify-end">
+          <button
+            onClick={onClose}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+          >
+            閉じる
+          </button>
+        </div>
       </div>
     </div>
   );

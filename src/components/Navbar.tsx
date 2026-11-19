@@ -7,8 +7,10 @@ import {
   RefreshCw, 
   TrendingUp, 
   Camera,
-  CheckCircle2,
-  AlertCircle
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  Settings
 } from 'lucide-react';
 import { YayoiApiConfig } from '../types';
 
@@ -19,232 +21,199 @@ interface NavbarProps {
   setActiveTab: (tab: NavTab) => void;
   yayoiConfig: YayoiApiConfig;
   unsyncedCount: number;
+  currentMonth: string;
+  onMonthChange: (month: string) => void;
   onOpenYayoiSync: () => void;
   onOpenScanner: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
-  yayoiConfig,
+  yayoiConfig: _yayoiConfig,
   unsyncedCount,
+  currentMonth,
+  onMonthChange,
   onOpenYayoiSync,
   onOpenScanner,
+  onOpenSettings,
 }) => {
+  const [year, month] = currentMonth.split('-').map(Number);
+
+  const handlePrevMonth = () => {
+    const prevDate = new Date(year, month - 2, 1);
+    const y = prevDate.getFullYear();
+    const m = String(prevDate.getMonth() + 1).padStart(2, '0');
+    onMonthChange(`${y}-${m}`);
+  };
+
+  const handleNextMonth = () => {
+    const nextDate = new Date(year, month, 1);
+    const y = nextDate.getFullYear();
+    const m = String(nextDate.getMonth() + 1).padStart(2, '0');
+    onMonthChange(`${y}-${m}`);
+  };
+
   return (
-    <header style={{ backgroundColor: '#ffffff', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100 }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0.75rem 1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-          
-          {/* ロゴ & アプリ名 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }} onClick={() => setActiveTab('dashboard')}>
-            <div style={{ 
-              width: 40, 
-              height: 40, 
-              borderRadius: 10, 
-              backgroundColor: 'var(--primary)', 
-              color: '#ffffff',
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              boxShadow: 'var(--shadow-sm)'
-            }}>
-              <Building2 size={24} />
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs">
+      <div className="max-w-6xl mx-auto px-4 py-2.5 sm:py-3">
+        {/* 上段: ロゴ・アプリ名 & 月選択 & アクションボタン */}
+        <div className="flex items-center justify-between gap-1 sm:gap-4">
+          {/* ロゴ & タイトル */}
+          <div 
+            className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer select-none shrink-0"
+            onClick={() => setActiveTab('dashboard')}
+          >
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-xs shrink-0">
+              <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontWeight: 800, fontSize: '1.2rem', letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
-                  現場収支クラウド
-                </span>
-                <span style={{ 
-                  fontSize: '0.7rem', 
-                  backgroundColor: 'var(--primary-light)', 
-                  color: 'var(--primary)', 
-                  fontWeight: 700, 
-                  padding: '0.15rem 0.45rem', 
-                  borderRadius: 4 
-                }}>
-                  下請けリフォームPRO
+              <div className="flex items-center space-x-1 whitespace-nowrap">
+                <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
+                  現場収支
+                </h1>
+                <span className="text-[9px] bg-emerald-100 text-emerald-800 font-black px-1 py-0.5 rounded-md">
+                  PRO
                 </span>
               </div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
-                現場別原価・レシートOCR ＆ 弥生会計API連携
-              </p>
+              <p className="text-[11px] text-slate-500 font-medium hidden md:block">下請け原価・レシートOCR ＆ 弥生連携</p>
             </div>
           </div>
 
-          {/* クイックアクション ＆ 弥生連携ステータス */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <button 
-              className="btn btn-primary btn-sm"
+          {/* 月選択セレクター ＆ アクション */}
+          <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
+            {/* 月選択 (スマホでは「11月」、PCでは「2026年11月」) */}
+            <div className="h-8 sm:h-9 flex items-center bg-slate-100 px-1 rounded-xl border border-slate-200 shrink-0">
+              <button
+                onClick={handlePrevMonth}
+                aria-label="前月へ"
+                className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center hover:bg-white rounded-lg text-slate-700 transition cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="px-1 font-bold text-slate-900 text-xs whitespace-nowrap">
+                <span className="hidden sm:inline">{year}年</span>{month}月
+              </span>
+              <button
+                onClick={handleNextMonth}
+                aria-label="翌月へ"
+                className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center hover:bg-white rounded-lg text-slate-700 transition cursor-pointer"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* スキャンボタン (スマホ: w-8 h-8, PC: h-9 px-3) */}
+            <button
               onClick={onOpenScanner}
-              title="レシート・領収書を撮影または取込"
+              className="h-8 w-8 sm:h-9 sm:w-9 md:w-auto md:px-3 flex items-center justify-center space-x-1.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold rounded-xl shadow-xs transition text-xs cursor-pointer shrink-0"
+              title="レシート読取・OCR"
             >
-              <Camera size={16} />
-              <span>レシート取込</span>
+              <Camera className="w-4 h-4 text-slate-950 shrink-0" />
+              <span className="hidden md:inline">レシート読取</span>
             </button>
 
-            <button 
-              className="btn btn-yayoi-outline btn-sm"
+            {/* 弥生会計連携ボタン (スマホ: w-8 h-8, PC: h-9 px-3) */}
+            <button
               onClick={onOpenYayoiSync}
-              title="弥生会計API連携ハブを開く"
-              style={{ position: 'relative' }}
+              className="h-8 w-8 sm:h-9 sm:w-9 md:w-auto md:px-3 relative flex items-center justify-center space-x-1 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200/90 font-bold rounded-xl transition text-xs cursor-pointer shrink-0"
+              title="弥生会計データ連携"
             >
-              <RefreshCw size={15} />
-              <span>弥生会計連携</span>
-              {unsyncedCount > 0 ? (
-                <span style={{ 
-                  backgroundColor: 'var(--yayoi)', 
-                  color: '#ffffff', 
-                  fontSize: '0.7rem', 
-                  padding: '0.1rem 0.4rem', 
-                  borderRadius: 10,
-                  fontWeight: 700,
-                  marginLeft: '0.2rem'
-                }}>
-                  {unsyncedCount}件未送信
-                </span>
-              ) : (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: 'var(--success)', fontSize: '0.75rem', fontWeight: 600 }}>
-                  <CheckCircle2 size={13} />
-                  接続中
+              <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden md:inline">弥生会計</span>
+              {unsyncedCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-0.5 bg-orange-600 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-xs border border-white">
+                  {unsyncedCount}
                 </span>
               )}
             </button>
+
+            {/* AI設定ボタン (スマホ: w-8 h-8, PC: w-9 h-9) */}
+            {onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="h-8 w-8 sm:h-9 sm:w-9 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer shrink-0"
+                title="AIレシート解析設定（Gemini APIキー）"
+              >
+                <Settings className="w-4 h-4 shrink-0" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* ナビゲーションタブ */}
-        <nav style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem', overflowX: 'auto' }}>
-          <button 
+        {/* 下段: ピル型タブナビゲーション（モバイル横スクロール対応 & 折返し防止） */}
+        <nav className="flex items-center space-x-1.5 sm:space-x-2 mt-2 sm:mt-3 pt-2 sm:pt-2.5 border-t border-slate-100 overflow-x-auto no-scrollbar -mx-4 px-4 scroll-smooth">
+          <button
             onClick={() => setActiveTab('dashboard')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.5rem 0.85rem',
-              borderRadius: 'var(--radius-md)',
-              border: 'none',
-              background: activeTab === 'dashboard' ? 'var(--primary-light)' : 'transparent',
-              color: activeTab === 'dashboard' ? 'var(--primary)' : 'var(--text-muted)',
-              fontWeight: activeTab === 'dashboard' ? 700 : 500,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
+            className={`shrink-0 flex items-center space-x-1.5 py-2 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'dashboard'
+                ? 'bg-emerald-50 text-emerald-800 font-extrabold shadow-xs border border-emerald-200/70'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
           >
-            <TrendingUp size={16} />
+            <TrendingUp className="w-4 h-4 shrink-0" />
             <span>ダッシュボード</span>
           </button>
 
-          <button 
+          <button
             onClick={() => setActiveTab('projects')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.5rem 0.85rem',
-              borderRadius: 'var(--radius-md)',
-              border: 'none',
-              background: activeTab === 'projects' ? 'var(--primary-light)' : 'transparent',
-              color: activeTab === 'projects' ? 'var(--primary)' : 'var(--text-muted)',
-              fontWeight: activeTab === 'projects' ? 700 : 500,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
+            className={`shrink-0 flex items-center space-x-1.5 py-2 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'projects'
+                ? 'bg-emerald-50 text-emerald-800 font-extrabold shadow-xs border border-emerald-200/70'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
           >
-            <Layers size={16} />
-            <span>現場・案件一覧</span>
+            <Layers className="w-4 h-4 shrink-0" />
+            <span>現場案件</span>
           </button>
 
-          <button 
+          <button
             onClick={() => setActiveTab('scanner')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.5rem 0.85rem',
-              borderRadius: 'var(--radius-md)',
-              border: 'none',
-              background: activeTab === 'scanner' ? 'var(--primary-light)' : 'transparent',
-              color: activeTab === 'scanner' ? 'var(--primary)' : 'var(--text-muted)',
-              fontWeight: activeTab === 'scanner' ? 700 : 500,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
+            className={`shrink-0 flex items-center space-x-1.5 py-2 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'scanner'
+                ? 'bg-emerald-50 text-emerald-800 font-extrabold shadow-xs border border-emerald-200/70'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
           >
-            <Receipt size={16} />
-            <span>レシート取込 (OCR)</span>
+            <Sparkles className="w-4 h-4 shrink-0" />
+            <span>レシートOCR</span>
           </button>
 
-          <button 
+          <button
             onClick={() => setActiveTab('expenses')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.5rem 0.85rem',
-              borderRadius: 'var(--radius-md)',
-              border: 'none',
-              background: activeTab === 'expenses' ? 'var(--primary-light)' : 'transparent',
-              color: activeTab === 'expenses' ? 'var(--primary)' : 'var(--text-muted)',
-              fontWeight: activeTab === 'expenses' ? 700 : 500,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
+            className={`shrink-0 flex items-center space-x-1.5 py-2 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'expenses'
+                ? 'bg-emerald-50 text-emerald-800 font-extrabold shadow-xs border border-emerald-200/70'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
           >
-            <span>経費・仕訳一覧</span>
-            {unsyncedCount > 0 && (
-              <span style={{ 
-                backgroundColor: 'var(--yayoi)', 
-                color: '#ffffff', 
-                fontSize: '0.7rem', 
-                padding: '0 0.35rem', 
-                borderRadius: 8,
-                fontWeight: 700
-              }}>
-                {unsyncedCount}
-              </span>
-            )}
+            <Receipt className="w-4 h-4 shrink-0" />
+            <span>支出・仕訳</span>
           </button>
 
-          <button 
+          <button
             onClick={() => setActiveTab('labor')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.5rem 0.85rem',
-              borderRadius: 'var(--radius-md)',
-              border: 'none',
-              background: activeTab === 'labor' ? 'var(--primary-light)' : 'transparent',
-              color: activeTab === 'labor' ? 'var(--primary)' : 'var(--text-muted)',
-              fontWeight: activeTab === 'labor' ? 700 : 500,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
+            className={`shrink-0 flex items-center space-x-1.5 py-2 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'labor'
+                ? 'bg-emerald-50 text-emerald-800 font-extrabold shadow-xs border border-emerald-200/70'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
           >
-            <Users size={16} />
-            <span>外注・応援人工</span>
+            <Users className="w-4 h-4 shrink-0" />
+            <span>応援職人・人工</span>
           </button>
 
-          <button 
+          <button
             onClick={() => setActiveTab('yayoi')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.5rem 0.85rem',
-              borderRadius: 'var(--radius-md)',
-              border: 'none',
-              background: activeTab === 'yayoi' ? 'var(--yayoi-bg)' : 'transparent',
-              color: activeTab === 'yayoi' ? 'var(--yayoi)' : 'var(--text-muted)',
-              fontWeight: activeTab === 'yayoi' ? 700 : 500,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
+            className={`shrink-0 flex items-center space-x-1.5 py-2 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
+              activeTab === 'yayoi'
+                ? 'bg-orange-100 text-orange-900 font-extrabold shadow-xs border border-orange-200'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
           >
-            <RefreshCw size={15} />
-            <span>弥生会計連携ハブ</span>
+            <RefreshCw className="w-4 h-4 shrink-0" />
+            <span>弥生連携ハブ</span>
           </button>
         </nav>
       </div>
