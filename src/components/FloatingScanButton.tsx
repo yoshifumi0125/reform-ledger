@@ -190,26 +190,26 @@ export const FloatingScanButton: React.FC<FloatingScanButtonProps> = ({
 
       {/* 画面フッターのフローティングアクションボタン（FAB） */}
       <aside aria-label="レシートクイックスキャン" className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center justify-center pointer-events-none">
-        <div className="flex items-center bg-slate-900/95 hover:bg-slate-900 text-white rounded-full p-1.5 shadow-2xl backdrop-blur-md border border-orange-500/40 pointer-events-auto transition-transform hover:scale-105 active:scale-95 ring-4 ring-orange-500/20">
+        <div className="flex items-center bg-slate-900/95 hover:bg-slate-900 text-white rounded-full p-1.5 shadow-2xl backdrop-blur-md border border-orange-500/40 pointer-events-auto transition-transform hover:scale-105 active:scale-95 ring-4 ring-orange-500/20 whitespace-nowrap">
           {/* 写真撮影ボタン（オレンジグラデーション） */}
           <button
             onClick={() => cameraInputRef.current?.click()}
-            className="flex items-center space-x-1.5 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-white font-black px-4 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm shadow-lg shadow-orange-500/30 transition cursor-pointer active:scale-95"
+            className="flex items-center space-x-1.5 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-white font-black px-4 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm shadow-lg shadow-orange-500/30 transition cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
           >
-            <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            <span>写真を撮影</span>
+            <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-white shrink-0" />
+            <span className="whitespace-nowrap">写真を撮影</span>
           </button>
 
           {/* 区切り線 */}
-          <div className="h-5 w-px bg-slate-700 mx-1 sm:mx-1.5" />
+          <div className="h-5 w-px bg-slate-700 mx-1 sm:mx-1.5 shrink-0" />
 
           {/* 画像追加ボタン */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center space-x-1.5 text-slate-200 hover:text-orange-300 font-bold px-3.5 sm:px-4 py-2.5 rounded-full text-xs sm:text-sm transition cursor-pointer active:scale-95"
+            className="flex items-center space-x-1.5 text-slate-200 hover:text-orange-300 font-bold px-3.5 sm:px-4 py-2.5 rounded-full text-xs sm:text-sm transition cursor-pointer active:scale-95 whitespace-nowrap shrink-0"
           >
-            <Upload className="w-4 h-4 text-orange-400" />
-            <span>画像を追加</span>
+            <Upload className="w-4 h-4 text-orange-400 shrink-0" />
+            <span className="whitespace-nowrap">画像を追加</span>
           </button>
         </div>
       </aside>
