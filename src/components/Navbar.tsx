@@ -169,18 +169,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('scanner')}
-            className={`shrink-0 flex items-center space-x-1.5 py-2 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
-              activeTab === 'scanner'
-                ? 'bg-emerald-50 text-emerald-800 font-extrabold shadow-xs border border-emerald-200/70'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <Sparkles className="w-4 h-4 shrink-0" />
-            <span>レシートOCR</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('expenses')}
             className={`shrink-0 flex items-center space-x-1.5 py-2 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer ${
               activeTab === 'expenses'

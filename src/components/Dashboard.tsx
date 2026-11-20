@@ -154,29 +154,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="space-y-6 pb-12 animate-fade-in">
       
-      {/* 1. 弥生会計 未同期アラートバナー */}
+      {/* 1. 弥生会計 未同期アラートバナー（洗練されたモダンUI） */}
       {unsyncedExpenses.length > 0 && (
-        <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-center space-x-3.5">
-            <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold shrink-0">
-              <RefreshCw className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-orange-950">
-                弥生会計への未送信経費が {unsyncedExpenses.length} 件（計 ¥{unsyncedAmount.toLocaleString()}）あります
+        <div className="relative overflow-hidden rounded-2xl border border-orange-200/90 bg-gradient-to-r from-orange-50/90 via-amber-50/70 to-orange-50/50 p-4 sm:p-5 shadow-xs transition hover:shadow-sm">
+          {/* 左端アクセントカラーライン */}
+          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-orange-500 to-amber-500" />
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 pl-2">
+            <div className="flex items-start sm:items-center space-x-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center font-black shadow-xs shrink-0 mt-0.5 sm:mt-0">
+                <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <p className="text-xs text-orange-800 mt-0.5 font-medium">
-                スマート取引取込APIへワンクリックで自動仕訳送信できます
-              </p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center space-x-2 mb-1">
+                  <span className="text-[10px] bg-orange-100 text-orange-900 border border-orange-200/80 font-black px-2 py-0.5 rounded-full inline-flex items-center space-x-1">
+                    <span>弥生会計 スマート取引取込</span>
+                  </span>
+                  <span className="text-[11px] text-orange-700 font-bold hidden sm:inline">
+                    未送信データ検知
+                  </span>
+                </div>
+                <div className="text-xs sm:text-sm font-bold text-slate-800 leading-snug">
+                  未送信の経費が <span className="text-base sm:text-lg font-black text-orange-600 px-0.5">{unsyncedExpenses.length}件</span>
+                  <span className="text-slate-400 font-normal mx-1">/</span>
+                  計 <span className="text-base sm:text-lg font-black text-slate-900 px-0.5">¥{unsyncedAmount.toLocaleString()}</span> あります
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5 hidden sm:block font-medium">
+                  公式スマート取引取込APIへワンクリックで仕訳日記帳へ自動送信できます
+                </p>
+              </div>
             </div>
+
+            <button
+              onClick={onOpenYayoiSync}
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs sm:text-sm shadow-md shadow-orange-500/20 transition cursor-pointer active:scale-95 shrink-0"
+            >
+              <RefreshCw className="w-4 h-4 text-white shrink-0" />
+              <span className="whitespace-nowrap">弥生会計へ一括送信</span>
+            </button>
           </div>
-          <button
-            onClick={onOpenYayoiSync}
-            className="inline-flex items-center space-x-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm shadow-sm transition cursor-pointer"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>弥生会計へ一括送信</span>
-          </button>
         </div>
       )}
 
