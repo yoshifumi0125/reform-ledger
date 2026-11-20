@@ -190,11 +190,11 @@ export const FloatingScanButton: React.FC<FloatingScanButtonProps> = ({
 
       {/* 画面フッターのフローティングアクションボタン（FAB） */}
       <aside aria-label="レシートクイックスキャン" className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center justify-center pointer-events-none">
-        <div className="flex items-center bg-slate-900/90 hover:bg-slate-900 text-white rounded-full p-1.5 shadow-2xl backdrop-blur-md border border-slate-700/80 pointer-events-auto transition-transform hover:scale-105 active:scale-95 ring-4 ring-black/10">
-          {/* 写真撮影ボタン */}
+        <div className="flex items-center bg-slate-900/95 hover:bg-slate-900 text-white rounded-full p-1.5 shadow-2xl backdrop-blur-md border border-orange-500/40 pointer-events-auto transition-transform hover:scale-105 active:scale-95 ring-4 ring-orange-500/20">
+          {/* 写真撮影ボタン（オレンジグラデーション） */}
           <button
             onClick={() => cameraInputRef.current?.click()}
-            className="flex items-center space-x-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black px-4 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm shadow-md transition cursor-pointer"
+            className="flex items-center space-x-1.5 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-white font-black px-4 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm shadow-lg shadow-orange-500/30 transition cursor-pointer active:scale-95"
           >
             <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             <span>写真を撮影</span>
@@ -206,9 +206,9 @@ export const FloatingScanButton: React.FC<FloatingScanButtonProps> = ({
           {/* 画像追加ボタン */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center space-x-1.5 text-slate-200 hover:text-white font-bold px-3.5 sm:px-4 py-2.5 rounded-full text-xs sm:text-sm transition cursor-pointer"
+            className="flex items-center space-x-1.5 text-slate-200 hover:text-orange-300 font-bold px-3.5 sm:px-4 py-2.5 rounded-full text-xs sm:text-sm transition cursor-pointer active:scale-95"
           >
-            <Upload className="w-4 h-4 text-emerald-400" />
+            <Upload className="w-4 h-4 text-orange-400" />
             <span>画像を追加</span>
           </button>
         </div>
@@ -216,7 +216,7 @@ export const FloatingScanButton: React.FC<FloatingScanButtonProps> = ({
 
       {/* 登録成功トースト通知 */}
       {successToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white font-bold px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-2 text-xs sm:text-sm animate-fade-in border border-emerald-400">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-orange-600 text-white font-bold px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-2 text-xs sm:text-sm animate-fade-in border border-orange-400">
           <Check className="w-4 h-4" />
           <span>{successToast}</span>
         </div>
@@ -433,7 +433,7 @@ export const FloatingScanButton: React.FC<FloatingScanButtonProps> = ({
               <button
                 type="submit"
                 disabled={isAnalyzing || !amount || Number(amount) <= 0}
-                className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-black px-6 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-sm flex items-center space-x-1.5"
+                className="bg-orange-500 hover:bg-orange-600 disabled:bg-slate-300 text-white font-black px-6 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-md shadow-orange-500/20 flex items-center space-x-1.5"
               >
                 <Check className="w-4 h-4" />
                 <span>この内容で登録する</span>
