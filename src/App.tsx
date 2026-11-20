@@ -15,6 +15,7 @@ import { ExpensesList } from './components/ExpensesList';
 import { LaborManagement } from './components/LaborManagement';
 import { YayoiSyncModal } from './components/YayoiSyncModal';
 import { SettingsModal } from './components/SettingsModal';
+import { FloatingScanButton } from './components/FloatingScanButton';
 import { RotateCcw } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -186,7 +187,7 @@ export const App: React.FC = () => {
       />
 
       {/* メインコンテンツエリア */}
-      <main className="max-w-6xl mx-auto w-full px-4 py-5 flex-1">
+      <main className="max-w-6xl mx-auto w-full px-4 py-5 pb-24 flex-1">
         {activeTab === 'dashboard' && (
           <Dashboard 
             projects={projects}
@@ -288,8 +289,16 @@ export const App: React.FC = () => {
         />
       )}
 
+      {/* 画面フッターのフローティング撮影・画像追加ボタン（全画面常駐） */}
+      <FloatingScanButton 
+        projects={projects}
+        yayoiConfig={yayoiConfig}
+        onSuccess={handleAddExpense}
+        onOpenSettings={() => setShowSettingsModal(true)}
+      />
+
       {/* フッター */}
-      <footer className="border-t border-slate-200 bg-white py-4 mt-8">
+      <footer className="border-t border-slate-200 bg-white py-4 mt-8 pb-20 sm:pb-6">
         <div className="max-w-6xl mx-auto px-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
           <div>
             <strong className="text-slate-700">現場収支クラウド</strong> ｜ 下請けリフォーム・職人専用収支管理 ＆ 弥生会計API連携

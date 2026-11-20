@@ -20,7 +20,6 @@ import {
   Calendar,
   AlertTriangle
 } from 'lucide-react';
-import { QuickScanCard } from './QuickScanCard';
 
 interface DashboardProps {
   projects: Project[];
@@ -155,14 +154,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="space-y-6 pb-12 animate-fade-in">
       
-      {/* 1. レシート・領収書 クイックスキャンカード */}
-      <QuickScanCard 
-        projects={projects}
-        onSuccess={onAddExpense}
-        onOpenSettings={onOpenSettings}
-      />
-
-      {/* 2. 弥生会計 未同期アラートバナー */}
+      {/* 1. 弥生会計 未同期アラートバナー */}
       {unsyncedExpenses.length > 0 && (
         <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
           <div className="flex items-center space-x-3.5">
