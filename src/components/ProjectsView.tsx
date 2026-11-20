@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Project, 
   ExpenseItem, 
@@ -243,15 +244,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
       </div>
 
       {/* 現場詳細ドロワー／モーダル */}
-      {activeDetailProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-2xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+      {activeDetailProject && createPortal(
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4 flex items-end sm:items-center justify-center animate-fade-in">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full flex flex-col max-h-[85vh] sm:max-h-[90vh] overflow-hidden animate-slide-up">
+            <div className="flex-shrink-0 flex items-start justify-between border-b border-slate-100 p-4 sm:p-5">
               <div>
                 <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md inline-block mb-1">
                   現場収支カルテ
                 </span>
-                <h3 className="text-lg font-bold text-slate-800">{activeDetailProject.name}</h3>
+                <h3 className="text-base sm:text-lg font-bold text-slate-800">{activeDetailProject.name}</h3>
                 <p className="text-xs text-slate-400 mt-0.5">元請: {activeDetailProject.client} ｜ 工期: {activeDetailProject.startDate} 〜 {activeDetailProject.endDate}</p>
               </div>
               <button
@@ -263,66 +264,73 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
             </div>
 
             {/* 収支サマリーカード */}
-            <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
-              <div>
-                <span className="text-[11px] text-slate-400 block">請負金額</span>
-                <strong className="text-base font-extrabold text-slate-800">¥{activeDetailProject.contractAmount.toLocaleString()}</strong>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-100 text-center">
+                <div>
+                  <span className="text-[10px] sm:text-[11px] text-slate-400 block">請負金額</span>
+                  <strong className="text-sm sm:text-base font-extrabold text-slate-800">¥{activeDetailProject.contractAmount.toLocaleString()}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] sm:text-[11px] text-slate-400 block">投入原価合計</span>
+                  <strong className="text-sm sm:text-base font-extrabold text-rose-600">¥{detailTotalCost.toLocaleString()}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] sm:text-[11px] text-slate-400 block">粗利益 (率)</span>
+                  <strong className="text-sm sm:text-base font-extrabold text-emerald-600">¥{detailProfit.toLocaleString()} ({detailMargin.toFixed(0)}%)</strong>
+                </div>
               </div>
-              <div>
-                <span className="text-[11px] text-slate-400 block">投入原価合計</span>
-                <strong className="text-base font-extrabold text-rose-600">¥{detailTotalCost.toLocaleString()}</strong>
-              </div>
-              <div>
-                <span className="text-[11px] text-slate-400 block">粗利益 (粗利率)</span>
-                <strong className="text-base font-extrabold text-emerald-600">¥{detailProfit.toLocaleString()} ({detailMargin.toFixed(1)}%)</strong>
+
+              {/* 原価内訳リスト */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold text-slate-700">現場投入原価の内訳:</h4>
+                <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs">
+                  <div className="p-3 flex justify-between">
+                    <span className="flex items-center space-x-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
+                      <span>材料費（仕入）:</span>
+                    </span>
+                    <strong className="text-slate-800">¥{detailMaterial.toLocaleString()}</strong>
+                  </div>
+                  <div className="p-3 flex justify-between">
+                    <span className="flex items-center space-x-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" />
+                      <span>外注・応援職人人工費:</span>
+                    </span>
+                    <strong className="text-slate-800">¥{detailLabor.toLocaleString()}</strong>
+                  </div>
+                  <div className="p-3 flex justify-between">
+                    <span className="flex items-center space-x-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+                      <span>現場直接経費（パーキング・産廃等）:</span>
+                    </span>
+                    <strong className="text-slate-800">¥{detailOther.toLocaleString()}</strong>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* 原価内訳リスト */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-slate-700">現場投入原価の内訳:</h4>
-              <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs">
-                <div className="p-3 flex justify-between">
-                  <span className="flex items-center space-x-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
-                    <span>材料費（仕入）:</span>
-                  </span>
-                  <strong className="text-slate-800">¥{detailMaterial.toLocaleString()}</strong>
-                </div>
-                <div className="p-3 flex justify-between">
-                  <span className="flex items-center space-x-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" />
-                    <span>外注・応援職人人工費:</span>
-                  </span>
-                  <strong className="text-slate-800">¥{detailLabor.toLocaleString()}</strong>
-                </div>
-                <div className="p-3 flex justify-between">
-                  <span className="flex items-center space-x-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
-                    <span>現場直接経費（パーキング・産廃等）:</span>
-                  </span>
-                  <strong className="text-slate-800">¥{detailOther.toLocaleString()}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
+            <div className="flex-shrink-0 p-3 sm:p-4 border-t border-slate-100 flex justify-end bg-slate-50/60">
               <button
                 onClick={onCloseDetail}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+                className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer"
               >
                 閉じる
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 新規現場登録モーダル */}
-      {showNewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
-          <form onSubmit={handleCreateProject} className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      {showNewModal && createPortal(
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4 flex items-end sm:items-center justify-center animate-fade-in">
+          <form 
+            onSubmit={handleCreateProject} 
+            className="bg-white rounded-t-3xl sm:rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full flex flex-col max-h-[85vh] sm:max-h-[90vh] overflow-hidden animate-slide-up"
+          >
+            {/* モーダルヘッダー（固定） */}
+            <div className="flex-shrink-0 flex items-center justify-between border-b border-slate-100 p-4 sm:p-5">
               <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
                 <PlusCircle className="w-5 h-5 text-emerald-600" />
                 <span>新規現場・工事案件の登録</span>
@@ -336,7 +344,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               </button>
             </div>
 
-            <div className="space-y-3">
+            {/* モーダルボディ（スクロール可能） */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">工事名・案件名</label>
                 <input
@@ -344,7 +353,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="例: 横浜市港北区 ○○様邸 キッチンリフォーム工事"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
                   required
                 />
               </div>
@@ -356,7 +365,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
                   placeholder="例: 株式会社大和工務店"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
                   required
                 />
               </div>
@@ -364,13 +373,13 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">請負金額（税込売上）</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">¥</span>
+                  <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-bold">¥</span>
                   <input
                     type="number"
                     value={contractAmount}
                     onChange={(e) => setContractAmount(e.target.value === '' ? '' : Number(e.target.value))}
                     placeholder="0"
-                    className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    className="w-full pl-7 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                     required
                   />
                 </div>
@@ -383,7 +392,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
                     required
                   />
                 </div>
@@ -393,7 +402,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
                   />
                 </div>
               </div>
@@ -403,7 +412,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-semibold"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-semibold text-slate-800"
                 >
                   <option value="in_progress">施工中</option>
                   <option value="planning">着工前</option>
@@ -414,7 +423,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+            {/* モーダルフッター（固定） */}
+            <div className="flex-shrink-0 p-4 sm:p-5 border-t border-slate-100 flex items-center justify-end space-x-3 bg-slate-50/60">
               <button
                 type="button"
                 onClick={() => setShowNewModal(false)}
@@ -424,13 +434,14 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
               </button>
               <button
                 type="submit"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-xs"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-sm"
               >
                 現場を登録する
               </button>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

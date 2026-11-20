@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   ExpenseItem, 
   Project, 
@@ -309,10 +310,11 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({
       </div>
 
       {/* レシート詳細モーダル（画像 ＆ 仕訳プレビュー） */}
-      {selectedReceipt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      {selectedReceipt && createPortal(
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4 flex items-end sm:items-center justify-center animate-fade-in">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full flex flex-col max-h-[85vh] sm:max-h-[90vh] overflow-hidden animate-slide-up">
+            {/* ヘッダー（固定） */}
+            <div className="flex-shrink-0 flex items-center justify-between border-b border-slate-100 p-4 sm:p-5">
               <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
                 <Receipt className="w-5 h-5 text-emerald-600" />
                 <span>レシート詳細 ＆ 弥生仕訳情報</span>
@@ -325,65 +327,70 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({
               </button>
             </div>
 
-            {/* レシート画像プレビュー（存在する場合） */}
-            {selectedReceipt.receiptImageUrl && (
-              <div className="rounded-2xl overflow-hidden border border-slate-200 max-h-64 flex items-center justify-center bg-slate-900/5">
-                <img
-                  src={selectedReceipt.receiptImageUrl}
-                  alt="レシート原本"
-                  className="max-h-64 object-contain"
-                />
-              </div>
-            )}
+            {/* スクロールボディ */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+              {/* レシート画像プレビュー（存在する場合） */}
+              {selectedReceipt.receiptImageUrl && (
+                <div className="rounded-2xl overflow-hidden border border-slate-200 max-h-60 flex items-center justify-center bg-slate-900/5">
+                  <img
+                    src={selectedReceipt.receiptImageUrl}
+                    alt="レシート原本"
+                    className="max-h-60 object-contain"
+                  />
+                </div>
+              )}
 
-            {/* 詳細情報グリッド */}
-            <div className="space-y-2.5 text-xs sm:text-sm">
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-400">購入店舗</span>
-                <strong className="text-slate-800">{selectedReceipt.vendor}</strong>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-400">支払金額 (税込)</span>
-                <strong className="text-base font-extrabold text-emerald-600">¥{selectedReceipt.amount.toLocaleString()}</strong>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-400">取引日</span>
-                <span className="font-semibold text-slate-800">{selectedReceipt.date}</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-400">紐付け現場</span>
-                <span className="font-bold text-blue-600">
-                  {selectedReceipt.projectId ? projectMap.get(selectedReceipt.projectId)?.name || '現場あり' : '一般管理費（現場指定なし）'}
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-400">弥生 借方科目</span>
-                <span className="font-semibold text-slate-800">{selectedReceipt.accountTitle}</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-400">弥生同期ステータス</span>
-                <span>
-                  {selectedReceipt.yayoiSynced ? (
-                    <span className="text-emerald-600 font-bold">
-                      送信完了（ID: {selectedReceipt.yayoiJournalId || '自動採番'}）
-                    </span>
-                  ) : (
-                    <span className="text-orange-600 font-bold">未送信</span>
-                  )}
-                </span>
+              {/* 詳細情報グリッド */}
+              <div className="space-y-2.5 text-xs sm:text-sm">
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-400">購入店舗</span>
+                  <strong className="text-slate-800">{selectedReceipt.vendor}</strong>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-400">支払金額 (税込)</span>
+                  <strong className="text-base font-extrabold text-emerald-600">¥{selectedReceipt.amount.toLocaleString()}</strong>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-400">取引日</span>
+                  <span className="font-semibold text-slate-800">{selectedReceipt.date}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-400">紐付け現場</span>
+                  <span className="font-bold text-blue-600">
+                    {selectedReceipt.projectId ? projectMap.get(selectedReceipt.projectId)?.name || '現場あり' : '一般管理費（現場指定なし）'}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-400">弥生 借方科目</span>
+                  <span className="font-semibold text-slate-800">{selectedReceipt.accountTitle}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-100">
+                  <span className="text-slate-400">弥生同期ステータス</span>
+                  <span>
+                    {selectedReceipt.yayoiSynced ? (
+                      <span className="text-emerald-600 font-bold">
+                        送信完了（ID: {selectedReceipt.yayoiJournalId || '自動採番'}）
+                      </span>
+                    ) : (
+                      <span className="text-orange-600 font-bold">未送信</span>
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex justify-end">
+            {/* フッター（固定） */}
+            <div className="flex-shrink-0 p-3 sm:p-4 border-t border-slate-100 flex justify-end bg-slate-50/60">
               <button
                 onClick={() => setSelectedReceipt(null)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+                className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer"
               >
                 閉じる
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

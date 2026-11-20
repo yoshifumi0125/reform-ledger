@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { LaborRecord, Project } from '../types';
 import { Users, PlusCircle, Calendar, CheckCircle2, Trash2, X, HardHat } from 'lucide-react';
 
@@ -221,10 +222,14 @@ export const LaborManagement: React.FC<LaborManagementProps> = ({
       </div>
 
       {/* 新規人工登録モーダル */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in">
-          <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+      {showModal && createPortal(
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4 flex items-end sm:items-center justify-center animate-fade-in">
+          <form 
+            onSubmit={handleSubmit} 
+            className="bg-white rounded-t-3xl sm:rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full flex flex-col max-h-[85vh] sm:max-h-[90vh] overflow-hidden animate-slide-up"
+          >
+            {/* ヘッダー（固定） */}
+            <div className="flex-shrink-0 flex items-center justify-between border-b border-slate-100 p-4 sm:p-5">
               <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
                 <Users className="w-5 h-5 text-emerald-600" />
                 <span>応援職人の人工（日当）記録</span>
@@ -238,7 +243,8 @@ export const LaborManagement: React.FC<LaborManagementProps> = ({
               </button>
             </div>
 
-            <div className="space-y-3">
+            {/* スクロールボディ */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">稼働現場</label>
                 <select
@@ -332,14 +338,15 @@ export const LaborManagement: React.FC<LaborManagementProps> = ({
                   <span>源泉徴収税 (10.21%控除):</span>
                   <span>-¥{withholdingTax.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between pt-1 border-t border-slate-200 text-emerald-700 font-bold text-sm">
+                <div className="flex justify-between pt-1 border-t border-slate-200 text-emerald-700 font-black text-sm">
                   <span>職人への差引手取振込額:</span>
                   <span>¥{netPayment.toLocaleString()}</span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3">
+            {/* フッター（固定） */}
+            <div className="flex-shrink-0 p-4 sm:p-5 border-t border-slate-100 flex items-center justify-end space-x-3 bg-slate-50/60">
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
@@ -349,13 +356,14 @@ export const LaborManagement: React.FC<LaborManagementProps> = ({
               </button>
               <button
                 type="submit"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-xs"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow-sm"
               >
                 人工を保存する
               </button>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
