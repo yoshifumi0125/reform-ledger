@@ -28,6 +28,7 @@ interface DashboardProps {
   laborRecords: LaborRecord[];
   currentMonth: string;
   onOpenScanner: () => void;
+  onOpenExpenses?: () => void;
   onOpenYayoiSync: () => void;
   onSelectProject: (projectId: string) => void;
   onNewProject: () => void;
@@ -41,6 +42,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   laborRecords,
   currentMonth,
   onOpenScanner,
+  onOpenExpenses,
   onOpenYayoiSync,
   onSelectProject,
   onNewProject,
@@ -49,6 +51,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [year, month] = currentMonth.split('-').map(Number);
   const formattedMonth = `${year}年${month}月`;
+
+  // 当月の支出を集計（未指定または当月に合致するもの）
+  const monthlyExpenses = React.useMemo(() => {
+    return expenses.filter((e) => !currentMonth || e.date.startsWith(currentMonth));
+  }, [expenses, currentMonth]);
 
   // 今月の集計計算
   const summary: MonthlySummary = React.useMemo(() => {
@@ -69,9 +76,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     let totalDirectExpenses = 0;
     let totalGeneralExpenses = 0;
 
-    // 当月の支出を集計（未指定または当月に合致するもの）
-    const monthlyExpenses = expenses.filter((e) => !currentMonth || e.date.startsWith(currentMonth));
-
     monthlyExpenses.forEach((e) => {
       if (e.category === 'material') {
         totalMaterialCost += e.amount;
@@ -89,10 +93,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
       totalLaborCost += l.totalAmount;
     });
 
+    const totalAllExpenses = totalMaterialCost + totalLaborCost + totalDirectExpenses + totalGeneralExpenses;
     const totalDirectCost = totalMaterialCost + totalLaborCost + totalDirectExpenses;
     const grossProfit = totalSales - totalDirectCost;
     const grossProfitMargin = totalSales > 0 ? (grossProfit / totalSales) * 100 : 0;
-    const netProfit = grossProfit - totalGeneralExpenses;
+    const netProfit = totalSales - totalAllExpenses;
 
     return {
       totalSales,
@@ -102,11 +107,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
       totalLaborCost,
       totalDirectExpenses,
       totalGeneralExpenses,
+      totalAllExpenses,
       grossProfit,
       grossProfitMargin,
       netProfit,
     };
-  }, [projects, expenses, laborRecords]);
+  }, [projects, monthlyExpenses, laborRecords]);
 
   // 未送信の弥生会計データ
   const unsyncedExpenses = expenses.filter((e) => !e.yayoiSynced);
@@ -200,25 +206,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           <div className="flex flex-wrap items-baseline justify-between gap-4 mt-3">
             <div>
-              <span className="text-xs font-semibold text-emerald-100 block">現場粗利益（純益）</span>
+              <span className="text-xs font-semibold text-emerald-100 block">
+                {summary.totalSales > 0 ? '現場粗利益（売上 - 原価）' : '今月の支出総合計（全原価・経費）'}
+              </span>
               <div className="flex items-baseline space-x-1.5 mt-0.5">
                 <span className="text-2xl sm:text-3xl font-extrabold text-emerald-200">¥</span>
                 <span className="text-4xl sm:text-5xl font-black tracking-tight text-white">
-                  {summary.grossProfit.toLocaleString()}
+                  {summary.totalSales > 0 ? summary.grossProfit.toLocaleString() : summary.totalAllExpenses.toLocaleString()}
                 </span>
               </div>
+              {summary.totalSales === 0 && (
+                <span className="text-[11px] text-emerald-200/90 font-medium block mt-1">
+                  ※請負売上登録前のため、今月計上された支出全額を表示しています
+                </span>
+              )}
             </div>
 
-            {/* 粗利率バッジ */}
+            {/* 粗利率バッジ / 支出ステータス */}
             <div className="bg-black/15 backdrop-blur-md border border-white/25 px-5 py-3 rounded-2xl text-right">
-              <span className="text-xs font-bold text-emerald-200 block">総合粗利率</span>
+              <span className="text-xs font-bold text-emerald-200 block">
+                {summary.totalSales > 0 ? '総合粗利率' : '純損益（売上 - 全支出）'}
+              </span>
               <span className="text-2xl sm:text-4xl font-black tracking-tight text-white">
-                {summary.grossProfitMargin.toFixed(1)}%
+                {summary.totalSales > 0 ? `${summary.grossProfitMargin.toFixed(1)}%` : `¥${summary.netProfit.toLocaleString()}`}
               </span>
             </div>
           </div>
 
-          {/* 請負売上 vs 投入原価のサマリーバー */}
+          {/* 請負売上 vs 投入原価・支出総合計のサマリーバー */}
           <div className="mt-6 pt-5 border-t border-emerald-400/30 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
             <div>
               <span className="text-emerald-100 font-semibold block">請負売上合計</span>
@@ -227,83 +242,97 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </strong>
             </div>
             <div>
-              <span className="text-emerald-100 font-semibold block">現場投入原価</span>
+              <span className="text-emerald-100 font-semibold block">支出・経費 総合計</span>
+              <strong className="text-base sm:text-lg font-black text-amber-200">
+                ¥{summary.totalAllExpenses.toLocaleString()}
+              </strong>
+            </div>
+            <div>
+              <span className="text-emerald-100 font-semibold block">現場直接原価（材料・人工・経費）</span>
               <strong className="text-base sm:text-lg font-black text-rose-200">
                 ¥{(summary.totalMaterialCost + summary.totalLaborCost + summary.totalDirectExpenses).toLocaleString()}
               </strong>
             </div>
             <div>
-              <span className="text-emerald-100 font-semibold block">入金済売上</span>
+              <span className="text-emerald-100 font-semibold block">一般経費・本部共通費</span>
               <strong className="text-base sm:text-lg font-black text-emerald-100">
-                ¥{summary.paidSales.toLocaleString()}
-              </strong>
-            </div>
-            <div>
-              <span className="text-emerald-100 font-semibold block">請求中・未回収</span>
-              <strong className="text-base sm:text-lg font-black text-amber-200">
-                ¥{summary.pendingSales.toLocaleString()}
+                ¥{summary.totalGeneralExpenses.toLocaleString()}
               </strong>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 4. サブKPIカード（4枚グリッド） */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 4. サブKPIカード（5枚グリッド） */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
         {/* 請負売上 */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5 flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-bold text-slate-700">請負金額（税込）</span>
+            <span className="text-xs font-bold text-slate-700">請負売上（税込）</span>
             <Building2 className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-2xl font-black text-slate-900 mt-2">
+          <div className="text-xl sm:text-2xl font-black text-slate-900 mt-2">
             ¥{summary.totalSales.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 mt-2 flex justify-between font-semibold">
-            <span className="text-emerald-700">入金: ¥{summary.paidSales.toLocaleString()}</span>
+          <div className="text-[10px] sm:text-[11px] text-slate-500 mt-2 flex flex-col gap-0.5 font-semibold">
+            <span className="text-emerald-700">入金済: ¥{summary.paidSales.toLocaleString()}</span>
             <span className="text-amber-700">未回収: ¥{summary.pendingSales.toLocaleString()}</span>
           </div>
         </div>
 
+        {/* 支出・経費 総合計（★全支出が確実に反映されるカード） */}
+        <div className="bg-emerald-50/60 rounded-2xl border border-emerald-200 shadow-sm p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-500">
+            <span className="text-xs font-bold text-emerald-950">支出・経費 総合計</span>
+            <Receipt className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div className="text-xl sm:text-2xl font-black text-emerald-800 mt-2">
+            ¥{summary.totalAllExpenses.toLocaleString()}
+          </div>
+          <div className="text-[10px] sm:text-[11px] text-emerald-700 mt-2 font-medium">
+            全{monthlyExpenses.length}件（材料・人工・経費合算）
+          </div>
+        </div>
+
         {/* 現場材料費 */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5 flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-bold text-slate-700">現場材料費（仕入）</span>
             <ShoppingBag className="w-4 h-4 text-blue-600" />
           </div>
-          <div className="text-2xl font-black text-blue-600 mt-2">
+          <div className="text-xl sm:text-2xl font-black text-blue-600 mt-2">
             ¥{summary.totalMaterialCost.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 mt-2 font-medium">
-            コーナンPRO・カインズ等での資材購入
+          <div className="text-[10px] sm:text-[11px] text-slate-500 mt-2 font-medium">
+            コーナンPRO・カインズ等
           </div>
         </div>
 
         {/* 外注・応援職人人工費 */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5 flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-bold text-slate-700">外注・応援人工費</span>
             <Users className="w-4 h-4 text-purple-600" />
           </div>
-          <div className="text-2xl font-black text-purple-600 mt-2">
+          <div className="text-xl sm:text-2xl font-black text-purple-600 mt-2">
             ¥{summary.totalLaborCost.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 mt-2 font-medium">
+          <div className="text-[10px] sm:text-[11px] text-slate-500 mt-2 font-medium">
             応援職人 {laborRecords.length} 人工記録
           </div>
         </div>
 
-        {/* 現場直接経費（駐車代・産廃） */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5 flex flex-col justify-between">
+        {/* 一般経費・共通費（スーパー・事務・日用品等） */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-bold text-slate-700">現場直接経費</span>
+            <span className="text-xs font-bold text-slate-700">一般経費・共通費</span>
             <Receipt className="w-4 h-4 text-amber-600" />
           </div>
-          <div className="text-2xl font-black text-amber-600 mt-2">
-            ¥{summary.totalDirectExpenses.toLocaleString()}
+          <div className="text-xl sm:text-2xl font-black text-amber-600 mt-2">
+            ¥{summary.totalGeneralExpenses.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 mt-2 font-medium">
-            現場パーキング・産廃処理費等
+          <div className="text-[10px] sm:text-[11px] text-slate-500 mt-2 font-medium">
+            スーパー・現場外消耗品等
           </div>
         </div>
       </div>
@@ -330,6 +359,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         <div className="space-y-3">
+          {projectStats.length === 0 && (
+            <div className="text-center py-8 px-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+              <Building2 className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-sm font-bold text-slate-700">登録された施工案件がまだありません</p>
+              <p className="text-xs text-slate-500 mt-1">「新規現場追加」から案件を作成すると、現場ごとの粗利や消化率を自動集計します。</p>
+            </div>
+          )}
+
           {projectStats.map(({ project, material, labor, parking, disposal, otherExpenses, totalCost, profit, margin, expenseCount }) => {
             const isGood = margin >= 35;
             const isWarning = margin < 25;
@@ -422,6 +459,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
             );
           })}
         </div>
+
+        {/* 現場未指定の一般経費・共通費カード */}
+        {summary.totalGeneralExpenses > 0 && (
+          <div className="mt-4 border border-amber-200/90 bg-amber-50/50 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-center space-x-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold shrink-0">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-amber-950 flex items-center space-x-2">
+                  <span>現場未指定の一般経費・共通費</span>
+                  <span className="text-xs bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-full font-bold">
+                    計 ¥{summary.totalGeneralExpenses.toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-xs text-amber-800 mt-0.5 font-medium">
+                  スーパー・日用品・事務所消耗品など、特定現場に紐付かない支出が計上されています
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onOpenExpenses || onOpenScanner}
+              className="text-xs font-bold text-amber-900 bg-white hover:bg-amber-100 border border-amber-300 px-3.5 py-2 rounded-xl transition cursor-pointer shadow-sm"
+            >
+              経費一覧で確認・現場割当 →
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 6. 最近のレシート・支出一覧 */}
@@ -432,7 +497,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <span>直近のレシート・支出履歴</span>
           </h3>
           <button
-            onClick={onOpenScanner}
+            onClick={onOpenExpenses || onOpenScanner}
             className="text-xs font-bold text-emerald-700 hover:text-emerald-800 transition cursor-pointer"
           >
             すべて見る →

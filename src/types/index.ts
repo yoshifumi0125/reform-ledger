@@ -112,7 +112,8 @@ export interface MonthlySummary {
   totalMaterialCost: number;    // 現場材料費合計
   totalLaborCost: number;       // 外注応援人工費合計
   totalDirectExpenses: number;  // 現場直接経費（パーキング・産廃・高速等）
-  totalGeneralExpenses: number; // 一般管理費
+  totalGeneralExpenses: number; // 一般管理費・現場未指定経費
+  totalAllExpenses: number;     // 全支出・経費総合計
   grossProfit: number;          // 現場粗利益
   grossProfitMargin: number;    // 粗利率 (%)
   netProfit: number;            // 差引純利益

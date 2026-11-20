@@ -194,6 +194,7 @@ export const App: React.FC = () => {
             laborRecords={laborRecords}
             currentMonth={currentMonth}
             onOpenScanner={() => setActiveTab('scanner')}
+            onOpenExpenses={() => setActiveTab('expenses')}
             onOpenYayoiSync={() => setShowYayoiModal(true)}
             onSelectProject={(id) => {
               setSelectedProjectId(id);
